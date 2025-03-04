@@ -1,9 +1,9 @@
 
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Sidebar } from '@/components/layout/Sidebar';
-import { Navbar } from '@/components/layout/Navbar';
-import { HiveMonitoring } from '@/components/hive/HiveMonitoring';
+import Sidebar from '@/components/layout/Sidebar';
+import Navbar from '@/components/layout/Navbar';
+import HiveMonitoring from '@/components/hive/HiveMonitoring';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { 

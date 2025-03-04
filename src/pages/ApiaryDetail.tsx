@@ -1,9 +1,9 @@
 
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Sidebar } from '@/components/layout/Sidebar';
-import { Navbar } from '@/components/layout/Navbar';
-import { HiveCard } from '@/components/hive/HiveCard';
+import Sidebar from '@/components/layout/Sidebar';
+import Navbar from '@/components/layout/Navbar';
+import HiveCard from '@/components/hive/HiveCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { MapPin, Calendar, PlusCircle, ArrowLeft, Edit } from 'lucide-react';

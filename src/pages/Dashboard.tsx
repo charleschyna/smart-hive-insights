@@ -1,9 +1,9 @@
 
 import React from 'react';
-import { Sidebar } from '@/components/layout/Sidebar';
-import { Navbar } from '@/components/layout/Navbar';
-import { HiveOverview } from '@/components/dashboard/HiveOverview';
-import { StatCard } from '@/components/dashboard/StatCard';
+import Sidebar from '@/components/layout/Sidebar';
+import Navbar from '@/components/layout/Navbar';
+import HiveOverview from '@/components/dashboard/HiveOverview';
+import StatCard from '@/components/dashboard/StatCard';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { BarChart3, ListPlus, ThermometerSun, Droplets, ArrowUpRight, Scale } from 'lucide-react';

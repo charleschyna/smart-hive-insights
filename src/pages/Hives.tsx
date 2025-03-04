@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { Sidebar } from '@/components/layout/Sidebar';
-import { Navbar } from '@/components/layout/Navbar';
-import { HiveCard } from '@/components/hive/HiveCard';
+import Sidebar from '@/components/layout/Sidebar';
+import Navbar from '@/components/layout/Navbar';
+import HiveCard from '@/components/hive/HiveCard';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { PlusCircle } from 'lucide-react';
