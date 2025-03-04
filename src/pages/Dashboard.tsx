@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useEffect } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
 import HiveOverview from '@/components/dashboard/HiveOverview';
@@ -9,6 +8,11 @@ import { Link } from 'react-router-dom';
 import { BarChart3, ListPlus, ThermometerSun, Droplets, ArrowUpRight, Scale } from 'lucide-react';
 
 const Dashboard = () => {
+  useEffect(() => {
+    // Log to console to help identify the issue
+    console.log("Dashboard component mounted");
+  }, []);
+
   // Mock data - In a real app, this would come from an API
   const stats = [
     { 

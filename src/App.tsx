@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,6 +13,7 @@ import ApiaryDetail from "./pages/ApiaryDetail";
 import Hives from "./pages/Hives";
 import HiveDetail from "./pages/HiveDetail";
 import Profile from "./pages/Profile";
+import ErrorBoundary from "./components/ErrorBoundary"; // Add import for ErrorBoundary
 
 const queryClient = new QueryClient();
 
@@ -27,7 +27,11 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={
+            <ErrorBoundary>
+              <Dashboard />
+            </ErrorBoundary>
+          } />
           <Route path="/apiaries" element={<Apiaries />} />
           <Route path="/apiaries/:id" element={<ApiaryDetail />} />
           <Route path="/hives" element={<Hives />} />
