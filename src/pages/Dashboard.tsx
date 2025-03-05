@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
@@ -6,7 +5,7 @@ import HiveOverview from '@/components/dashboard/HiveOverview';
 import StatCard from '@/components/dashboard/StatCard';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { BarChart3, ListPlus, ThermometerSun, Droplets, ArrowUpRight, Scale } from 'lucide-react';
+import { BarChart3, ListPlus, ThermometerSun, Droplets, ArrowUpRight, Scale, PlusCircle } from 'lucide-react';
 
 const Dashboard = () => {
   const [apiaryCount, setApiaryCount] = useState(0);
@@ -15,7 +14,6 @@ const Dashboard = () => {
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
 
   useEffect(() => {
-    // Load data from localStorage
     const apiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
     const hives = JSON.parse(localStorage.getItem('hives') || '[]');
     const activities = JSON.parse(localStorage.getItem('activities') || '[]');
@@ -23,15 +21,11 @@ const Dashboard = () => {
     setApiaryCount(apiaries.length);
     setHiveCount(hives.length);
     
-    // Get up to 3 most recent hives
     setRecentHives(hives.slice(0, 3));
-    
-    // Get up to 4 most recent activities
     setRecentActivities(activities.slice(0, 4));
     
     console.log("Dashboard component mounted");
     
-    // Set up event listener for storage changes
     const handleStorageChange = () => {
       const updatedApiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
       const updatedHives = JSON.parse(localStorage.getItem('hives') || '[]');
@@ -49,7 +43,6 @@ const Dashboard = () => {
     };
   }, []);
 
-  // Format relative time
   const getRelativeTime = (timestamp: string) => {
     const now = new Date();
     const time = new Date(timestamp);
@@ -112,7 +105,7 @@ const Dashboard = () => {
     <div className="flex h-screen bg-background">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Navbar title="Dashboard" />
+        <Navbar />
         <main className="flex-1 overflow-y-auto p-6 ml-16 md:ml-0">
           <div className="max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-8">
@@ -127,7 +120,6 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Stats Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
               {stats.map((stat, index) => (
                 <StatCard 
@@ -142,7 +134,6 @@ const Dashboard = () => {
               ))}
             </div>
 
-            {/* Hive Overview Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
               <div className="bg-white dark:bg-sidebar rounded-xl shadow-glass p-6">
                 <div className="flex justify-between items-center mb-6">
@@ -204,7 +195,6 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Hive Overview Cards */}
             <div>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold">Hive Overview</h2>

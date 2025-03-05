@@ -11,7 +11,7 @@ const Settings = () => {
     <div className="flex h-screen bg-background">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Navbar title="Settings" />
+        <Navbar />
         <main className="flex-1 overflow-y-auto p-6 ml-16 md:ml-0">
           <div className="max-w-3xl mx-auto">
             <div className="flex justify-between items-center mb-8">
