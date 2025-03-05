@@ -54,7 +54,7 @@ const ApiaryDetail = () => {
       <div className="flex h-screen bg-background">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Navbar title="Loading..." />
+          <Navbar />
           <main className="flex-1 flex items-center justify-center">
             <p>Loading apiary details...</p>
           </main>
@@ -67,7 +67,7 @@ const ApiaryDetail = () => {
     <div className="flex h-screen bg-background">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Navbar title={apiary.name} />
+        <Navbar />
         <main className="flex-1 overflow-y-auto p-6 ml-16 md:ml-0">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center mb-6">

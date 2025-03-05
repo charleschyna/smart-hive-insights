@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,12 +11,16 @@ import { Archive, Crown } from 'lucide-react';
 
 const NewHive = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiaries, setApiaries] = useState<any[]>([]);
   
+  // Get preselected apiary ID from location state if provided
+  const preselectedApiaryId = location.state?.preselectedApiaryId || '';
+  
   const [formData, setFormData] = useState({
     name: '',
-    apiaryId: '',
+    apiaryId: preselectedApiaryId,
     queenAge: '1',
     queenColor: 'Blue',
     beeType: 'Italian',
@@ -28,11 +32,11 @@ const NewHive = () => {
     const storedApiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
     setApiaries(storedApiaries);
     
-    // Set default apiaryId if any apiaries exist
-    if (storedApiaries.length > 0) {
+    // Set default apiaryId if any apiaries exist and none is preselected
+    if (storedApiaries.length > 0 && !formData.apiaryId) {
       setFormData(prev => ({ ...prev, apiaryId: storedApiaries[0].id }));
     }
-  }, []);
+  }, [formData.apiaryId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -43,10 +47,19 @@ const NewHive = () => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // In a real app, this would be an API call
-    setTimeout(() => {
+    try {
       // Find the selected apiary
       const selectedApiary = apiaries.find(a => a.id === formData.apiaryId);
+      
+      if (!selectedApiary) {
+        toast({
+          title: 'Error',
+          description: 'Please select a valid apiary',
+          variant: 'destructive',
+        });
+        setIsSubmitting(false);
+        return;
+      }
       
       // Mock adding hive to local storage
       const hives = JSON.parse(localStorage.getItem('hives') || '[]');
@@ -64,8 +77,8 @@ const NewHive = () => {
         sound: 'Normal',
         imageUrl: '/placeholder.svg',
         apiary: {
-          id: selectedApiary?.id,
-          name: selectedApiary?.name
+          id: selectedApiary.id,
+          name: selectedApiary.name
         }
       };
       
@@ -73,18 +86,16 @@ const NewHive = () => {
       localStorage.setItem('hives', JSON.stringify(hives));
       
       // Update apiary hive count
-      if (selectedApiary) {
-        const updatedApiaries = apiaries.map(apiary => {
-          if (apiary.id === selectedApiary.id) {
-            return {
-              ...apiary,
-              totalHives: (apiary.totalHives || 0) + 1
-            };
-          }
-          return apiary;
-        });
-        localStorage.setItem('apiaries', JSON.stringify(updatedApiaries));
-      }
+      const updatedApiaries = apiaries.map(apiary => {
+        if (apiary.id === selectedApiary.id) {
+          return {
+            ...apiary,
+            totalHives: (apiary.totalHives || 0) + 1
+          };
+        }
+        return apiary;
+      });
+      localStorage.setItem('apiaries', JSON.stringify(updatedApiaries));
       
       // Add activity event
       const activities = JSON.parse(localStorage.getItem('activities') || '[]');
@@ -94,24 +105,35 @@ const NewHive = () => {
         entityId: newHive.id,
         entityName: newHive.name,
         timestamp: new Date().toISOString(),
-        description: `New hive "${newHive.name}" was added to ${selectedApiary?.name || 'an apiary'}`
+        description: `New hive "${newHive.name}" was added to ${selectedApiary.name || 'an apiary'}`
       });
       localStorage.setItem('activities', JSON.stringify(activities));
 
-      setIsSubmitting(false);
+      // Trigger storage event to update other components
+      window.dispatchEvent(new Event('storage'));
+
       toast({
         title: 'Hive Added',
-        description: `${formData.name} has been successfully added to ${selectedApiary?.name || 'the apiary'}`,
+        description: `${formData.name} has been successfully added to ${selectedApiary.name || 'the apiary'}`,
       });
       navigate('/hives');
-    }, 1000);
+    } catch (error) {
+      console.error('Error adding hive:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add hive. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Navbar title="Add New Hive" />
+        <Navbar />
         <main className="flex-1 overflow-y-auto p-6 ml-16 md:ml-0">
           <div className="max-w-3xl mx-auto">
             <div className="flex items-center mb-6">
