@@ -56,12 +56,27 @@ const soundData = [
 
 type TimeRange = '24h' | '7d' | '30d' | '90d';
 
-interface HiveOverviewProps {
-  hiveName: string;
-  apiaryName: string;
+export interface HiveOverviewProps {
+  hiveId: string;
+  name: string;
+  location: string;
+  temperature: number;
+  humidity: number;
+  weight: number;
+  activity: string;
+  lastUpdated: string;
 }
 
-const HiveOverview = ({ hiveName, apiaryName }: HiveOverviewProps) => {
+const HiveOverview = ({ 
+  hiveId, 
+  name, 
+  location, 
+  temperature, 
+  humidity, 
+  weight, 
+  activity, 
+  lastUpdated 
+}: HiveOverviewProps) => {
   const [timeRange, setTimeRange] = useState<TimeRange>('24h');
   
   const handleTimeRangeChange = (range: TimeRange) => {
@@ -79,10 +94,10 @@ const HiveOverview = ({ hiveName, apiaryName }: HiveOverviewProps) => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
         <div>
           <h3 className="font-medium text-lg text-gray-900 dark:text-gray-100">
-            {hiveName}
+            {name}
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {apiaryName}
+            {location}
           </p>
         </div>
         
@@ -142,7 +157,7 @@ const HiveOverview = ({ hiveName, apiaryName }: HiveOverviewProps) => {
             <div className="flex justify-between text-sm">
               <div>
                 <p className="text-gray-500 dark:text-gray-400">Current</p>
-                <p className="font-medium text-lg text-gray-900 dark:text-gray-100">34.7°C</p>
+                <p className="font-medium text-lg text-gray-900 dark:text-gray-100">{temperature}°C</p>
               </div>
               <div>
                 <p className="text-gray-500 dark:text-gray-400">Average</p>
@@ -186,7 +201,7 @@ const HiveOverview = ({ hiveName, apiaryName }: HiveOverviewProps) => {
             <div className="flex justify-between text-sm">
               <div>
                 <p className="text-gray-500 dark:text-gray-400">Current</p>
-                <p className="font-medium text-lg text-gray-900 dark:text-gray-100">59%</p>
+                <p className="font-medium text-lg text-gray-900 dark:text-gray-100">{humidity}%</p>
               </div>
               <div>
                 <p className="text-gray-500 dark:text-gray-400">Average</p>
@@ -230,7 +245,7 @@ const HiveOverview = ({ hiveName, apiaryName }: HiveOverviewProps) => {
             <div className="flex justify-between text-sm">
               <div>
                 <p className="text-gray-500 dark:text-gray-400">Current</p>
-                <p className="font-medium text-lg text-gray-900 dark:text-gray-100">67.1 kg</p>
+                <p className="font-medium text-lg text-gray-900 dark:text-gray-100">{weight} kg</p>
               </div>
               <div>
                 <p className="text-gray-500 dark:text-gray-400">Daily Gain</p>
@@ -278,7 +293,7 @@ const HiveOverview = ({ hiveName, apiaryName }: HiveOverviewProps) => {
               </div>
               <div>
                 <p className="text-gray-500 dark:text-gray-400">Status</p>
-                <p className="font-medium text-lg text-forest-600 dark:text-forest-400">Normal</p>
+                <p className="font-medium text-lg text-forest-600 dark:text-forest-400">{activity}</p>
               </div>
               <div>
                 <p className="text-gray-500 dark:text-gray-400">Alert Level</p>

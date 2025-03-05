@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
@@ -20,35 +21,40 @@ const Dashboard = () => {
       value: '5', 
       change: '+2', 
       icon: <ListPlus className="h-5 w-5" />,
-      linkTo: '/apiaries'
+      linkTo: '/apiaries',
+      color: 'honey' as const
     },
     { 
       title: 'Total Hives', 
       value: '24', 
       change: '+4', 
       icon: <BarChart3 className="h-5 w-5" />,
-      linkTo: '/hives'
+      linkTo: '/hives',
+      color: 'forest' as const
     },
     { 
       title: 'Average Temp.', 
       value: '35°C', 
       change: '0.8°C', 
       icon: <ThermometerSun className="h-5 w-5" />,
-      linkTo: '/metrics'
+      linkTo: '/metrics',
+      color: 'red' as const
     },
     { 
       title: 'Average Humidity', 
       value: '65%', 
       change: '-2%', 
       icon: <Droplets className="h-5 w-5" />,
-      linkTo: '/metrics'
+      linkTo: '/metrics',
+      color: 'blue' as const
     },
     { 
       title: 'Average Weight', 
       value: '28kg', 
       change: '+3kg', 
       icon: <Scale className="h-5 w-5" />,
-      linkTo: '/metrics'
+      linkTo: '/metrics',
+      color: 'purple' as const
     }
   ];
 
@@ -81,6 +87,7 @@ const Dashboard = () => {
                   change={stat.change}
                   icon={stat.icon}
                   linkTo={stat.linkTo}
+                  color={stat.color}
                 />
               ))}
             </div>

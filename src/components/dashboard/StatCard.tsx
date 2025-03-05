@@ -3,16 +3,18 @@ import { ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
+import { Link } from 'react-router-dom';
 
-interface StatCardProps {
+export interface StatCardProps {
   title: string;
   value: string | number;
   change?: string;
   isPositive?: boolean;
   icon: ReactNode;
-  color: 'honey' | 'forest' | 'blue' | 'red' | 'purple';
+  color?: 'honey' | 'forest' | 'blue' | 'red' | 'purple';
   data?: { value: number }[];
   delay?: number;
+  linkTo?: string;
 }
 
 const colorMap = {
@@ -72,13 +74,14 @@ const StatCard = ({
   change,
   isPositive = true,
   icon,
-  color,
+  color = 'honey',
   data = defaultData,
   delay = 0,
+  linkTo,
 }: StatCardProps) => {
   const colorStyle = colorMap[color];
   
-  return (
+  const cardContent = (
     <motion.div
       className={cn(
         "glass-card p-5 glass-card-hover",
@@ -142,6 +145,12 @@ const StatCard = ({
       </div>
     </motion.div>
   );
+  
+  return linkTo ? (
+    <Link to={linkTo} className="block h-full">
+      {cardContent}
+    </Link>
+  ) : cardContent;
 };
 
 export default StatCard;
