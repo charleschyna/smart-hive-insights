@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -13,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import styles from './Sidebar.module.css';
 
 const menuItems = [
   { name: 'Dashboard', icon: Home, path: '/dashboard' },
@@ -64,10 +64,7 @@ const Sidebar = () => {
   
   return (
     <motion.div
-      className={cn(
-        "fixed left-0 top-16 h-[calc(100vh-4rem)] bg-white/80 dark:bg-gray-900/80 backdrop-blur-glass z-30 border-r transition-all duration-300",
-        collapsed ? "w-16" : "w-64"
-      )}
+      className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}
       initial={{ x: -20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ duration: 0.4, delay: 0.1 }}

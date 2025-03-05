@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
@@ -10,6 +9,7 @@ import { PlusCircle } from 'lucide-react';
 const Hives = () => {
   const [hives, setHives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     // Load hives from localStorage
@@ -34,10 +34,10 @@ const Hives = () => {
 
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'}`}>
         <Navbar />
-        <main className="flex-1 overflow-y-auto p-6 ml-16 md:ml-0">
+        <main className="flex-1 overflow-y-auto p-6 mt-16">
           <div className="max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-8">
               <h1 className="text-2xl font-bold">Manage Hives</h1>

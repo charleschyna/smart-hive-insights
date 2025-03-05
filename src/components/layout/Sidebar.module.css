@@ -1,0 +1,8 @@
+.sidebar {
+  width: 16rem; /* Default width */
+  transition: width 0.3s;
+}
+
+.sidebar.open {
+  width: 64rem; /* Expanded width */
+}

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
@@ -10,6 +9,7 @@ import { PlusCircle } from 'lucide-react';
 const Apiaries = () => {
   const [apiaries, setApiaries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   useEffect(() => {
     // Load apiaries from localStorage
@@ -34,13 +34,13 @@ const Apiaries = () => {
 
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar />
+      <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!setIsSidebarOpen)} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Navbar />
-        <main className="flex-1 overflow-y-auto p-6 ml-16 md:ml-0">
+        <main className={`flex-1 overflow-y-auto p-6 transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'} mt-16`}>
           <div className="max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-8">
-              <h1 className="text-2xl font-bold">Manage Apiaries</h1>
+              <h1 className="text-2xl font-bold text-left">Manage Apiaries</h1>
               <Button asChild>
                 <Link to="/apiaries/new">
                   <PlusCircle className="h-5 w-5 mr-2" /> Add Apiary

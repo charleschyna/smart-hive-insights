@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -58,12 +57,13 @@ const Navbar = () => {
       <div className="container mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
         <div className="flex items-center">
           <Link to="/" className="flex items-center space-x-2">
+            <img src="/Logo_nobg.png" alt="Logo" className="h-12 w-auto" />
             <motion.span 
-              className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-honey-500 to-honey-600"
+              className="text-2xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-honey-500 to-honey-600"
               whileHover={{ scale: 1.03 }}
               transition={{ type: "spring", stiffness: 400, damping: 10 }}
             >
-              Smart Nyuki
+              
             </motion.span>
           </Link>
         </div>

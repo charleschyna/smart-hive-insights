@@ -12,6 +12,7 @@ const Dashboard = () => {
   const [hiveCount, setHiveCount] = useState(0);
   const [recentHives, setRecentHives] = useState<any[]>([]);
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   useEffect(() => {
     const apiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
@@ -103,13 +104,13 @@ const Dashboard = () => {
 
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar />
+      <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Navbar />
-        <main className="flex-1 overflow-y-auto p-6 ml-16 md:ml-0">
+        <main className={`flex-1 overflow-y-auto p-6 transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'} mt-16`}>
           <div className="max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-8">
-              <h1 className="text-2xl font-bold">Hive Dashboard</h1>
+              <h1 className="text-2xl font-bold text-left">Hive Dashboard</h1>
               <div className="flex space-x-4">
                 <Button asChild variant="outline">
                   <Link to="/apiaries/new">Add Apiary</Link>
