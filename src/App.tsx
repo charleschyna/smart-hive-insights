@@ -14,6 +14,10 @@ import ApiaryDetail from "./pages/ApiaryDetail";
 import Hives from "./pages/Hives";
 import HiveDetail from "./pages/HiveDetail";
 import Profile from "./pages/Profile";
+import Analytics from "./pages/Analytics";
+import Settings from "./pages/Settings";
+import NewApiary from "./pages/NewApiary";
+import NewHive from "./pages/NewHive";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
@@ -31,10 +35,14 @@ const App = () => (
             <Route path="/signup" element={<Signup />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/apiaries" element={<Apiaries />} />
+            <Route path="/apiaries/new" element={<NewApiary />} />
             <Route path="/apiaries/:id" element={<ApiaryDetail />} />
             <Route path="/hives" element={<Hives />} />
+            <Route path="/hives/new" element={<NewHive />} />
             <Route path="/hives/:id" element={<HiveDetail />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/settings" element={<Settings />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

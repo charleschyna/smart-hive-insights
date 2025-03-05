@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
 import HiveOverview from '@/components/dashboard/HiveOverview';
@@ -9,25 +9,75 @@ import { Link } from 'react-router-dom';
 import { BarChart3, ListPlus, ThermometerSun, Droplets, ArrowUpRight, Scale } from 'lucide-react';
 
 const Dashboard = () => {
+  const [apiaryCount, setApiaryCount] = useState(0);
+  const [hiveCount, setHiveCount] = useState(0);
+  const [recentHives, setRecentHives] = useState<any[]>([]);
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+
   useEffect(() => {
-    // Log to console to help identify the issue
+    // Load data from localStorage
+    const apiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
+    const hives = JSON.parse(localStorage.getItem('hives') || '[]');
+    const activities = JSON.parse(localStorage.getItem('activities') || '[]');
+    
+    setApiaryCount(apiaries.length);
+    setHiveCount(hives.length);
+    
+    // Get up to 3 most recent hives
+    setRecentHives(hives.slice(0, 3));
+    
+    // Get up to 4 most recent activities
+    setRecentActivities(activities.slice(0, 4));
+    
     console.log("Dashboard component mounted");
+    
+    // Set up event listener for storage changes
+    const handleStorageChange = () => {
+      const updatedApiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
+      const updatedHives = JSON.parse(localStorage.getItem('hives') || '[]');
+      const updatedActivities = JSON.parse(localStorage.getItem('activities') || '[]');
+      
+      setApiaryCount(updatedApiaries.length);
+      setHiveCount(updatedHives.length);
+      setRecentHives(updatedHives.slice(0, 3));
+      setRecentActivities(updatedActivities.slice(0, 4));
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
-  // Mock data - In a real app, this would come from an API
+  // Format relative time
+  const getRelativeTime = (timestamp: string) => {
+    const now = new Date();
+    const time = new Date(timestamp);
+    const diffMs = now.getTime() - time.getTime();
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffDays > 0) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    if (diffHours > 0) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffMinutes > 0) return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`;
+    return 'Just now';
+  };
+
   const stats = [
     { 
       title: 'Total Apiaries', 
-      value: '5', 
-      change: '+2', 
+      value: apiaryCount.toString(), 
+      change: '+' + apiaryCount, 
       icon: <ListPlus className="h-5 w-5" />,
       linkTo: '/apiaries',
       color: 'honey' as const
     },
     { 
       title: 'Total Hives', 
-      value: '24', 
-      change: '+4', 
+      value: hiveCount.toString(), 
+      change: '+' + hiveCount, 
       icon: <BarChart3 className="h-5 w-5" />,
       linkTo: '/hives',
       color: 'forest' as const
@@ -37,7 +87,7 @@ const Dashboard = () => {
       value: '35°C', 
       change: '0.8°C', 
       icon: <ThermometerSun className="h-5 w-5" />,
-      linkTo: '/metrics',
+      linkTo: '/analytics',
       color: 'red' as const
     },
     { 
@@ -45,7 +95,7 @@ const Dashboard = () => {
       value: '65%', 
       change: '-2%', 
       icon: <Droplets className="h-5 w-5" />,
-      linkTo: '/metrics',
+      linkTo: '/analytics',
       color: 'blue' as const
     },
     { 
@@ -53,7 +103,7 @@ const Dashboard = () => {
       value: '28kg', 
       change: '+3kg', 
       icon: <Scale className="h-5 w-5" />,
-      linkTo: '/metrics',
+      linkTo: '/analytics',
       color: 'purple' as const
     }
   ];
@@ -63,7 +113,7 @@ const Dashboard = () => {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Navbar title="Dashboard" />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6 ml-16 md:ml-0">
           <div className="max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-8">
               <h1 className="text-2xl font-bold">Hive Dashboard</h1>
@@ -102,15 +152,29 @@ const Dashboard = () => {
                   </Button>
                 </div>
                 <div className="space-y-4">
-                  {[1, 2, 3, 4].map((item) => (
-                    <div key={item} className="flex items-center justify-between py-3 border-b border-border last:border-0">
-                      <div>
-                        <p className="font-medium">Hive {item} Temperature Alert</p>
-                        <p className="text-sm text-muted-foreground mt-1">Temperature exceeded threshold (38°C)</p>
+                  {recentActivities.length === 0 ? (
+                    <p className="text-muted-foreground py-6 text-center">No recent activities</p>
+                  ) : (
+                    recentActivities.map((activity) => (
+                      <div key={activity.id} className="flex items-center justify-between py-3 border-b border-border last:border-0">
+                        <div>
+                          <p className="font-medium">{activity.description}</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {activity.type === 'apiary_added' ? (
+                              <Link to={`/apiaries/${activity.entityId}`} className="hover:text-honey-600">
+                                View apiary
+                              </Link>
+                            ) : activity.type === 'hive_added' ? (
+                              <Link to={`/hives/${activity.entityId}`} className="hover:text-honey-600">
+                                View hive
+                              </Link>
+                            ) : null}
+                          </p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{getRelativeTime(activity.timestamp)}</p>
                       </div>
-                      <p className="text-xs text-muted-foreground">{item} hour{item > 1 ? 's' : ''} ago</p>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -148,21 +212,34 @@ const Dashboard = () => {
                   <Link to="/hives">See All Hives</Link>
                 </Button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[1, 2, 3].map((hive) => (
-                  <HiveOverview 
-                    key={hive}
-                    hiveId={`H-${hive}00${hive}`}
-                    name={`Hive ${hive}`}
-                    location={`Apiary ${hive}`}
-                    temperature={35 + hive}
-                    humidity={60 + hive}
-                    weight={25 + hive}
-                    activity="Normal"
-                    lastUpdated={new Date().toISOString()}
-                  />
-                ))}
-              </div>
+              
+              {recentHives.length === 0 ? (
+                <div className="bg-muted/30 rounded-xl p-8 text-center">
+                  <h3 className="text-lg font-medium mb-2">No hives added yet</h3>
+                  <p className="text-muted-foreground mb-4">Add your first hive to see its overview here</p>
+                  <Button asChild size="sm">
+                    <Link to="/hives/new">
+                      <PlusCircle className="h-4 w-4 mr-2" /> Add Your First Hive
+                    </Link>
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {recentHives.map((hive) => (
+                    <HiveOverview 
+                      key={hive.id}
+                      hiveId={hive.id}
+                      name={hive.name}
+                      location={hive.apiary?.name || 'Unknown Apiary'}
+                      temperature={hive.temperature}
+                      humidity={hive.humidity}
+                      weight={hive.weight}
+                      activity={hive.activity}
+                      lastUpdated={hive.lastInspection}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </main>

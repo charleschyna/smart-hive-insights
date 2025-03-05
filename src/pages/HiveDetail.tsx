@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { useParams, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
 import HiveMonitoring from '@/components/hive/HiveMonitoring';
@@ -13,29 +13,37 @@ import {
 
 const HiveDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [hive, setHive] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   
-  // Mock data - In a real app, this would come from an API
-  const hive = {
-    id: id,
-    name: 'Hive A1',
-    apiary: {
-      id: '1',
-      name: 'Mountain Valley Apiary'
-    },
-    queenAge: 1,
-    queenColor: 'Blue',
-    queenInstalled: '2022-04-10',
-    beeType: 'Italian',
-    lastInspection: '2023-08-15',
-    health: 'Good',
-    notes: 'Strong colony with good brood pattern. No signs of disease or pests.',
-    temperature: 35,
-    humidity: 65,
-    weight: 32,
-    sound: 'Normal',
-    activity: 'High',
-    imageUrl: '/placeholder.svg'
-  };
+  useEffect(() => {
+    // Load hive from localStorage
+    const loadData = () => {
+      const hives = JSON.parse(localStorage.getItem('hives') || '[]');
+      const foundHive = hives.find((h: any) => h.id === id);
+      
+      if (!foundHive) {
+        navigate('/hives');
+        return;
+      }
+      
+      setHive(foundHive);
+      setLoading(false);
+    };
+    
+    loadData();
+    
+    // Set up event listener for storage changes
+    const handleStorageChange = () => {
+      loadData();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [id, navigate]);
   
   // Mock data for the monitoring time series
   const timeSeriesData = {
@@ -52,13 +60,27 @@ const HiveDetail = () => {
       value: 31.5 + Math.random() * 1
     }))
   };
+  
+  if (loading) {
+    return (
+      <div className="flex h-screen bg-background">
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Navbar title="Loading..." />
+          <main className="flex-1 flex items-center justify-center">
+            <p>Loading hive details...</p>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Navbar title={hive.name} />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6 ml-16 md:ml-0">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center mb-6">
               <Button asChild variant="ghost" size="sm" className="mr-4">
@@ -77,8 +99,8 @@ const HiveDetail = () => {
                       <h1 className="text-2xl font-bold mb-2">{hive.name}</h1>
                       <div className="flex items-center text-muted-foreground mb-1">
                         <MapPin className="h-4 w-4 mr-1" />
-                        <Link to={`/apiaries/${hive.apiary.id}`} className="hover:text-honey-600">
-                          {hive.apiary.name}
+                        <Link to={`/apiaries/${hive.apiaryId}`} className="hover:text-honey-600">
+                          {hive.apiary?.name || 'Unknown Apiary'}
                         </Link>
                       </div>
                       <div className="flex items-center text-muted-foreground">
@@ -150,7 +172,7 @@ const HiveDetail = () => {
                     
                     <div>
                       <h3 className="text-sm font-medium text-muted-foreground mb-1">Notes</h3>
-                      <p className="text-sm">{hive.notes}</p>
+                      <p className="text-sm">{hive.notes || 'No notes available'}</p>
                     </div>
                   </div>
                 </CardContent>
