@@ -105,9 +105,9 @@ const Dashboard = () => {
   return (
     <div className="flex h-screen bg-background">
       <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-6'}`}>
         <Navbar />
-        <main className={`flex-1 overflow-y-auto p-6 transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'} mt-16`}>
+        <main className="flex-1 overflow-y-auto p-6 mt-16">
           <div className="max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-8">
               <h1 className="text-2xl font-bold text-left">Hive Dashboard</h1>
