@@ -26,31 +26,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const setData = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        console.error(error);
-        setIsLoading(false);
-        return;
-      }
-
-      setSession(session);
-      setUser(session?.user || null);
-      
-      if (session?.user) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-          
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
-          console.error('Error fetching profile:', error);
-        } else {
-          setProfile(data);
+          console.error('Error getting session:', error);
+          setIsLoading(false);
+          return;
         }
+
+        setSession(session);
+        setUser(session?.user || null);
+        
+        if (session?.user) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .maybeSingle();
+            
+          if (error) {
+            console.error('Error fetching profile:', error);
+          } else {
+            setProfile(data);
+          }
+        }
+      } catch (err) {
+        console.error('Unexpected error in auth setup:', err);
+      } finally {
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
     };
 
     setData();
@@ -65,43 +69,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
           
         if (error) {
           console.error('Error fetching profile:', error);
         } else {
           setProfile(data);
         }
+        
+        if (event === 'SIGNED_IN') {
+          navigate('/dashboard');
+        }
       } else {
         setProfile(null);
+        if (event === 'SIGNED_OUT') {
+          navigate('/login');
+        }
       }
     });
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, []);
+  }, [navigate]);
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error signing in:', error);
+        return { error };
+      }
       
-      navigate('/dashboard');
+      toast({
+        title: "Login successful",
+        description: "Welcome back to Smart Nyuki!",
+      });
+      
       return { error: null };
     } catch (error) {
-      console.error('Error signing in:', error);
+      console.error('Unexpected error signing in:', error);
       return { error };
     }
   };
 
   const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -112,7 +130,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error signing up:', error);
+        return { error };
+      }
       
       toast({
         title: "Account created!",
@@ -121,17 +142,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       return { error: null };
     } catch (error) {
-      console.error('Error signing up:', error);
+      console.error('Unexpected error signing up:', error);
       return { error };
     }
   };
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
-      navigate('/login');
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('Error signing out:', error);
+        toast({
+          title: "Error signing out",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Signed out",
+          description: "You have been successfully logged out.",
+        });
+      }
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error('Unexpected error signing out:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while signing out.",
+        variant: "destructive",
+      });
     }
   };
 

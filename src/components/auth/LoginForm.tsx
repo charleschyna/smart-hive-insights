@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -18,6 +18,7 @@ interface LoginFormData {
 
 const LoginForm = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { signIn } = useAuth();
   
@@ -53,10 +54,14 @@ const LoginForm = () => {
     
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Email is invalid';
     }
     
     if (!formData.password) {
       newErrors.password = 'Password is required';
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
     }
     
     setErrors(newErrors);
@@ -70,19 +75,44 @@ const LoginForm = () => {
     
     setLoading(true);
     
-    const { error } = await signIn(formData.email, formData.password);
-    
-    if (error) {
+    try {
+      const { error } = await signIn(formData.email, formData.password);
+      
+      if (error) {
+        console.error('Login error:', error);
+        setLoading(false);
+        
+        const errorMessage = error.message || "Invalid credentials. Please check your email and password.";
+        
+        toast({
+          title: "Login failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        
+        // Add a generic form error
+        setErrors(prev => ({
+          ...prev,
+          form: "Invalid email or password. Please try again."
+        }));
+      } else {
+        const from = location.state?.from?.pathname || '/dashboard';
+        
+        toast({
+          title: "Welcome back!",
+          description: "Successfully logged in. Redirecting...",
+        });
+        
+        // Navigate will happen automatically via AuthContext
+      }
+    } catch (err) {
+      console.error('Unexpected error during login:', err);
       setLoading(false);
+      
       toast({
-        title: "Login failed",
-        description: error.message || "Please check your credentials and try again.",
+        title: "Login error",
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Welcome back!",
-        description: "Successfully logged in. Redirecting to dashboard...",
       });
     }
   };
@@ -95,6 +125,12 @@ const LoginForm = () => {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
     >
+      {errors.form && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
+          {errors.form}
+        </div>
+      )}
+      
       <div className="space-y-1">
         <Label htmlFor="email">Email</Label>
         <Input

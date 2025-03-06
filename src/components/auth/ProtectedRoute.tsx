@@ -21,6 +21,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   if (!user) {
+    // Save the location they were trying to go to
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
