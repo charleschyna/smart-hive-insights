@@ -8,12 +8,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
 import { Archive, Crown } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 const NewHive = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiaries, setApiaries] = useState<any[]>([]);
+  const { user } = useAuth();
   
   // Get preselected apiary ID from location state if provided
   const preselectedApiaryId = location.state?.preselectedApiaryId || '';
@@ -28,27 +31,54 @@ const NewHive = () => {
   });
 
   useEffect(() => {
-    // Load apiaries from localStorage
-    const storedApiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
-    setApiaries(storedApiaries);
-    
-    // Set default apiaryId if any apiaries exist and none is preselected
-    if (storedApiaries.length > 0 && !formData.apiaryId) {
-      setFormData(prev => ({ ...prev, apiaryId: storedApiaries[0].id }));
-    }
-  }, [formData.apiaryId]);
+    const fetchApiaries = async () => {
+      try {
+        if (!user) return;
+        
+        const { data, error } = await supabase
+          .from('apiaries')
+          .select('*')
+          .order('name');
+        
+        if (error) {
+          console.error('Error fetching apiaries:', error);
+          return;
+        }
+        
+        setApiaries(data || []);
+        
+        // Set default apiaryId if any apiaries exist and none is preselected
+        if (data && data.length > 0 && !formData.apiaryId) {
+          setFormData(prev => ({ ...prev, apiaryId: data[0].id }));
+        }
+      } catch (err) {
+        console.error('Unexpected error fetching apiaries:', err);
+      }
+    };
+
+    fetchApiaries();
+  }, [user, formData.apiaryId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    if (!user) {
+      toast({
+        title: 'Error',
+        description: 'You must be logged in to create a hive',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
 
     try {
-      // Find the selected apiary
       const selectedApiary = apiaries.find(a => a.id === formData.apiaryId);
       
       if (!selectedApiary) {
@@ -61,57 +91,44 @@ const NewHive = () => {
         return;
       }
       
-      // Mock adding hive to local storage
-      const hives = JSON.parse(localStorage.getItem('hives') || '[]');
+      const now = new Date().toISOString();
+      
       const newHive = {
-        id: Date.now().toString(),
-        ...formData,
-        queenAge: parseInt(formData.queenAge),
-        queenInstalled: new Date().toISOString(),
-        lastInspection: new Date().toISOString(),
+        user_id: user.id,
+        apiary_id: formData.apiaryId,
+        name: formData.name,
+        queen_age: parseInt(formData.queenAge),
+        queen_color: formData.queenColor,
+        bee_type: formData.beeType,
+        notes: formData.notes,
+        queen_installed: now,
+        last_inspection: now,
         health: 'Good',
         temperature: 35,
         humidity: 65,
         weight: 30,
         activity: 'Normal',
-        sound: 'Normal',
-        imageUrl: '/placeholder.svg',
-        apiary: {
-          id: selectedApiary.id,
-          name: selectedApiary.name
-        }
+        image_url: '/placeholder.svg'
       };
       
-      hives.push(newHive);
-      localStorage.setItem('hives', JSON.stringify(hives));
+      const { data, error } = await supabase
+        .from('hives')
+        .insert(newHive)
+        .select();
+      
+      if (error) {
+        console.error('Error adding hive:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to add hive. Please try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
       
       // Update apiary hive count
-      const updatedApiaries = apiaries.map(apiary => {
-        if (apiary.id === selectedApiary.id) {
-          return {
-            ...apiary,
-            totalHives: (apiary.totalHives || 0) + 1
-          };
-        }
-        return apiary;
-      });
-      localStorage.setItem('apiaries', JSON.stringify(updatedApiaries));
+      await supabase.rpc('increment_hive_count', { apiary_id_param: formData.apiaryId });
       
-      // Add activity event
-      const activities = JSON.parse(localStorage.getItem('activities') || '[]');
-      activities.unshift({
-        id: Date.now().toString(),
-        type: 'hive_added',
-        entityId: newHive.id,
-        entityName: newHive.name,
-        timestamp: new Date().toISOString(),
-        description: `New hive "${newHive.name}" was added to ${selectedApiary.name || 'an apiary'}`
-      });
-      localStorage.setItem('activities', JSON.stringify(activities));
-
-      // Trigger storage event to update other components
-      window.dispatchEvent(new Event('storage'));
-
       toast({
         title: 'Hive Added',
         description: `${formData.name} has been successfully added to ${selectedApiary.name || 'the apiary'}`,

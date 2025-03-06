@@ -9,6 +9,113 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      apiaries: {
+        Row: {
+          coordinates: string | null
+          created_at: string | null
+          description: string | null
+          established: string | null
+          id: string
+          image_url: string | null
+          last_inspection: string | null
+          location: string | null
+          name: string
+          total_hives: number | null
+          user_id: string
+        }
+        Insert: {
+          coordinates?: string | null
+          created_at?: string | null
+          description?: string | null
+          established?: string | null
+          id?: string
+          image_url?: string | null
+          last_inspection?: string | null
+          location?: string | null
+          name: string
+          total_hives?: number | null
+          user_id: string
+        }
+        Update: {
+          coordinates?: string | null
+          created_at?: string | null
+          description?: string | null
+          established?: string | null
+          id?: string
+          image_url?: string | null
+          last_inspection?: string | null
+          location?: string | null
+          name?: string
+          total_hives?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      hives: {
+        Row: {
+          activity: string | null
+          apiary_id: string | null
+          created_at: string | null
+          health: string | null
+          humidity: number | null
+          id: string
+          image_url: string | null
+          last_inspection: string | null
+          name: string
+          notes: string | null
+          queen_age: number | null
+          queen_color: string | null
+          queen_installed: string | null
+          temperature: number | null
+          user_id: string
+          weight: number | null
+        }
+        Insert: {
+          activity?: string | null
+          apiary_id?: string | null
+          created_at?: string | null
+          health?: string | null
+          humidity?: number | null
+          id?: string
+          image_url?: string | null
+          last_inspection?: string | null
+          name: string
+          notes?: string | null
+          queen_age?: number | null
+          queen_color?: string | null
+          queen_installed?: string | null
+          temperature?: number | null
+          user_id: string
+          weight?: number | null
+        }
+        Update: {
+          activity?: string | null
+          apiary_id?: string | null
+          created_at?: string | null
+          health?: string | null
+          humidity?: number | null
+          id?: string
+          image_url?: string | null
+          last_inspection?: string | null
+          name?: string
+          notes?: string | null
+          queen_age?: number | null
+          queen_color?: string | null
+          queen_installed?: string | null
+          temperature?: number | null
+          user_id?: string
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hives_apiary_id_fkey"
+            columns: ["apiary_id"]
+            isOneToOne: false
+            referencedRelation: "apiaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

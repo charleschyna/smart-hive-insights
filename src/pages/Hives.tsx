@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,71 +25,102 @@ const Hives = () => {
   const [hives, setHives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
-    // Load hives from localStorage
-    const loadHives = () => {
-      const storedHives = JSON.parse(localStorage.getItem('hives') || '[]');
-      setHives(storedHives);
-      setLoading(false);
-    };
-
-    loadHives();
-    
-    // Set up event listener for storage changes
-    const handleStorageChange = () => {
-      loadHives();
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
-
-  const handleDeleteHive = (id: string, name: string) => {
-    // Remove hive from localStorage
-    const updatedHives = hives.filter(hive => hive.id !== id);
-    localStorage.setItem('hives', JSON.stringify(updatedHives));
-    
-    // Update apiaries to reflect hive count changes
-    const apiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
-    const hive = hives.find(h => h.id === id);
-    
-    if (hive && hive.apiaryId) {
-      const updatedApiaries = apiaries.map((apiary: any) => {
-        if (apiary.id === hive.apiaryId) {
-          const totalHives = (apiary.totalHives || 1) - 1;
-          return { ...apiary, totalHives: totalHives < 0 ? 0 : totalHives };
+    const fetchHives = async () => {
+      try {
+        if (!user) return;
+        
+        const { data, error } = await supabase
+          .from('hives')
+          .select(`
+            *,
+            apiary:apiary_id (
+              id,
+              name
+            )
+          `)
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          console.error('Error fetching hives:', error);
+          return;
         }
-        return apiary;
+        
+        setHives(data || []);
+      } catch (err) {
+        console.error('Unexpected error fetching hives:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHives();
+    
+    // Set up subscription for real-time updates
+    const channel = supabase
+      .channel('hives-changes')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'hives',
+          filter: `user_id=eq.${user?.id}`
+        }, 
+        () => {
+          fetchHives();
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  const handleDeleteHive = async (id: string, name: string) => {
+    try {
+      // Find the hive to get the apiary_id
+      const hive = hives.find(h => h.id === id);
+      
+      // Delete from Supabase
+      const { error } = await supabase
+        .from('hives')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        console.error('Error deleting hive:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to delete hive. Please try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      // Update apiary hive count
+      if (hive && hive.apiary_id) {
+        await supabase.rpc('decrement_hive_count', { apiary_id_param: hive.apiary_id });
+      }
+      
+      // Update UI
+      setHives(hives.filter(h => h.id !== id));
+      
+      // Notify user
+      toast({
+        title: 'Hive Deleted',
+        description: `${name} has been removed successfully`,
       });
-      localStorage.setItem('apiaries', JSON.stringify(updatedApiaries));
+    } catch (err) {
+      console.error('Unexpected error deleting hive:', err);
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      });
     }
-    
-    // Add activity event
-    const activities = JSON.parse(localStorage.getItem('activities') || '[]');
-    activities.unshift({
-      id: Date.now().toString(),
-      type: 'hive_deleted',
-      entityId: id,
-      entityName: name,
-      timestamp: new Date().toISOString(),
-      description: `Hive "${name}" was deleted`
-    });
-    localStorage.setItem('activities', JSON.stringify(activities));
-    
-    // Update UI
-    setHives(updatedHives);
-    
-    // Notify user
-    toast({
-      title: 'Hive Deleted',
-      description: `${name} has been removed successfully`,
-    });
-    
-    // Dispatch storage event to notify other tabs/components
-    window.dispatchEvent(new Event('storage'));
   };
 
   return (
@@ -127,13 +160,13 @@ const Hives = () => {
                     <HiveCard
                       id={hive.id}
                       name={hive.name}
-                      queenAge={hive.queenAge}
-                      lastInspection={hive.lastInspection}
-                      health={hive.health}
+                      queenAge={hive.queen_age}
+                      lastInspection={hive.last_inspection}
+                      health={hive.health || 'Good'}
                       temperature={hive.temperature}
                       humidity={hive.humidity}
                       weight={hive.weight}
-                      imageUrl={hive.imageUrl}
+                      imageUrl={hive.image_url || '/placeholder.svg'}
                     />
                     <AlertDialog>
                       <AlertDialogTrigger asChild>

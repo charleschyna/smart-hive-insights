@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { MapPin, Calendar, PlusCircle, ArrowLeft, Edit, Trash2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,83 +29,114 @@ const ApiaryDetail = () => {
   const [hives, setHives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { user } = useAuth();
   
   useEffect(() => {
-    // Load apiary and associated hives from localStorage
-    const loadData = () => {
-      const apiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
-      const foundApiary = apiaries.find((a: any) => a.id === id);
+    const fetchData = async () => {
+      try {
+        if (!user || !id) return;
+        
+        // Fetch apiary details
+        const { data: apiaryData, error: apiaryError } = await supabase
+          .from('apiaries')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
+        
+        if (apiaryError) {
+          console.error('Error fetching apiary:', apiaryError);
+          navigate('/apiaries');
+          return;
+        }
+        
+        if (!apiaryData) {
+          navigate('/apiaries');
+          return;
+        }
+        
+        setApiary(apiaryData);
+        
+        // Fetch hives associated with this apiary
+        const { data: hivesData, error: hivesError } = await supabase
+          .from('hives')
+          .select('*')
+          .eq('apiary_id', id)
+          .order('created_at', { ascending: false });
+        
+        if (hivesError) {
+          console.error('Error fetching hives:', hivesError);
+          return;
+        }
+        
+        setHives(hivesData || []);
+      } catch (err) {
+        console.error('Unexpected error in apiary details:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+    
+    // Set up subscription for real-time updates
+    const channel = supabase
+      .channel('apiary-detail-changes')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'hives',
+          filter: `apiary_id=eq.${id}`
+        }, 
+        () => {
+          fetchData();
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id, navigate, user]);
+
+  const handleDeleteHive = async (hiveId: string, hiveName: string) => {
+    try {
+      // Delete from Supabase
+      const { error } = await supabase
+        .from('hives')
+        .delete()
+        .eq('id', hiveId);
       
-      if (!foundApiary) {
-        navigate('/apiaries');
+      if (error) {
+        console.error('Error deleting hive:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to delete hive. Please try again.',
+          variant: 'destructive',
+        });
         return;
       }
       
-      setApiary(foundApiary);
+      // Update apiary hive count in Supabase
+      await supabase.rpc('decrement_hive_count', { apiary_id_param: id });
       
-      // Find hives associated with this apiary
-      const allHives = JSON.parse(localStorage.getItem('hives') || '[]');
-      const apiaryHives = allHives.filter((h: any) => h.apiaryId === id);
-      setHives(apiaryHives);
+      // Update UI
+      setHives(hives.filter(h => h.id !== hiveId));
+      setApiary({...apiary, total_hives: Math.max(0, (apiary.total_hives || 1) - 1)});
       
-      setLoading(false);
-    };
-    
-    loadData();
-    
-    // Set up event listener for storage changes
-    const handleStorageChange = () => {
-      loadData();
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [id, navigate]);
-
-  const handleDeleteHive = (hiveId: string, hiveName: string) => {
-    // Remove hive from localStorage
-    const updatedHives = hives.filter(hive => hive.id !== hiveId);
-    const allHives = JSON.parse(localStorage.getItem('hives') || '[]');
-    const updatedAllHives = allHives.filter((hive: any) => hive.id !== hiveId);
-    localStorage.setItem('hives', JSON.stringify(updatedAllHives));
-    
-    // Update apiary to reflect hive count change
-    const apiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
-    const updatedApiaries = apiaries.map((a: any) => {
-      if (a.id === id) {
-        const totalHives = (a.totalHives || 1) - 1;
-        return { ...a, totalHives: totalHives < 0 ? 0 : totalHives };
-      }
-      return a;
-    });
-    localStorage.setItem('apiaries', JSON.stringify(updatedApiaries));
-    
-    // Update UI
-    setHives(updatedHives);
-    setApiary({...apiary, totalHives: (apiary.totalHives || 1) - 1});
-    
-    // Add activity event
-    const activities = JSON.parse(localStorage.getItem('activities') || '[]');
-    activities.unshift({
-      id: Date.now().toString(),
-      type: 'hive_deleted',
-      entityId: hiveId,
-      entityName: hiveName,
-      timestamp: new Date().toISOString(),
-      description: `Hive "${hiveName}" was deleted from apiary "${apiary.name}"`
-    });
-    localStorage.setItem('activities', JSON.stringify(activities));
-    
-    // Notify user
-    toast({
-      title: 'Hive Deleted',
-      description: `${hiveName} has been removed from ${apiary.name}`,
-    });
-    
-    // Dispatch storage event to notify other tabs/components
-    window.dispatchEvent(new Event('storage'));
+      // Notify user
+      toast({
+        title: 'Hive Deleted',
+        description: `${hiveName} has been removed from ${apiary.name}`,
+      });
+    } catch (err) {
+      console.error('Unexpected error deleting hive:', err);
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
   
   if (loading) {
@@ -165,11 +198,11 @@ const ApiaryDetail = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
                     <div className="bg-muted/40 rounded-lg p-4">
                       <p className="text-sm text-muted-foreground mb-1">Total Hives</p>
-                      <p className="text-2xl font-bold">{apiary.totalHives || 0}</p>
+                      <p className="text-2xl font-bold">{apiary.total_hives || 0}</p>
                     </div>
                     <div className="bg-muted/40 rounded-lg p-4">
                       <p className="text-sm text-muted-foreground mb-1">Last Inspection</p>
-                      <p className="text-2xl font-bold">{new Date(apiary.lastInspection).toLocaleDateString()}</p>
+                      <p className="text-2xl font-bold">{new Date(apiary.last_inspection).toLocaleDateString()}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -214,13 +247,13 @@ const ApiaryDetail = () => {
                       <HiveCard
                         id={hive.id}
                         name={hive.name}
-                        queenAge={hive.queenAge}
-                        lastInspection={hive.lastInspection}
-                        health={hive.health}
+                        queenAge={hive.queen_age}
+                        lastInspection={hive.last_inspection}
+                        health={hive.health || 'Good'}
                         temperature={hive.temperature}
                         humidity={hive.humidity}
                         weight={hive.weight}
-                        imageUrl={hive.imageUrl}
+                        imageUrl={hive.image_url || '/placeholder.svg'}
                       />
                       <AlertDialog>
                         <AlertDialogTrigger asChild>

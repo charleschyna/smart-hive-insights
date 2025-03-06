@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,60 +25,88 @@ const Apiaries = () => {
   const [apiaries, setApiaries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
-    // Load apiaries from localStorage
-    const loadApiaries = () => {
-      const storedApiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
-      setApiaries(storedApiaries);
-      setLoading(false);
+    const fetchApiaries = async () => {
+      try {
+        if (!user) return;
+        
+        const { data, error } = await supabase
+          .from('apiaries')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          console.error('Error fetching apiaries:', error);
+          return;
+        }
+        
+        setApiaries(data || []);
+      } catch (err) {
+        console.error('Unexpected error fetching apiaries:', err);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    loadApiaries();
+    fetchApiaries();
     
-    // Set up event listener for storage changes
-    const handleStorageChange = () => {
-      loadApiaries();
-    };
+    // Set up subscription for real-time updates
+    const channel = supabase
+      .channel('apiaries-changes')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'apiaries',
+          filter: `user_id=eq.${user?.id}`
+        }, 
+        () => {
+          fetchApiaries();
+        }
+      )
+      .subscribe();
     
-    window.addEventListener('storage', handleStorageChange);
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
+      supabase.removeChannel(channel);
     };
-  }, []);
+  }, [user]);
 
-  const handleDeleteApiary = (id: string) => {
-    // Remove apiary from localStorage
-    const updatedApiaries = apiaries.filter(apiary => apiary.id !== id);
-    localStorage.setItem('apiaries', JSON.stringify(updatedApiaries));
-    
-    // Remove hives associated with this apiary
-    const hives = JSON.parse(localStorage.getItem('hives') || '[]');
-    const updatedHives = hives.filter((hive: any) => hive.apiaryId !== id);
-    localStorage.setItem('hives', JSON.stringify(updatedHives));
-    
-    // Add activity event
-    const activities = JSON.parse(localStorage.getItem('activities') || '[]');
-    activities.unshift({
-      id: Date.now().toString(),
-      type: 'apiary_deleted',
-      entityId: id,
-      timestamp: new Date().toISOString(),
-      description: `Apiary was deleted`
-    });
-    localStorage.setItem('activities', JSON.stringify(activities));
-    
-    // Update UI
-    setApiaries(updatedApiaries);
-    
-    // Notify user
-    toast({
-      title: 'Apiary Deleted',
-      description: 'The apiary has been removed successfully',
-    });
-    
-    // Dispatch storage event to notify other tabs/components
-    window.dispatchEvent(new Event('storage'));
+  const handleDeleteApiary = async (id: string) => {
+    try {
+      // Delete from Supabase
+      const { error } = await supabase
+        .from('apiaries')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        console.error('Error deleting apiary:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to delete apiary. Please try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      // Update UI
+      setApiaries(apiaries.filter(apiary => apiary.id !== id));
+      
+      // Notify user
+      toast({
+        title: 'Apiary Deleted',
+        description: 'The apiary has been removed successfully',
+      });
+    } catch (err) {
+      console.error('Unexpected error deleting apiary:', err);
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -117,9 +147,9 @@ const Apiaries = () => {
                       id={apiary.id}
                       name={apiary.name}
                       location={apiary.location}
-                      totalHives={apiary.totalHives || 0}
-                      imageUrl={apiary.imageUrl || '/placeholder.svg'}
-                      lastInspection={apiary.lastInspection || new Date().toISOString()}
+                      totalHives={apiary.total_hives || 0}
+                      imageUrl={apiary.image_url || '/placeholder.svg'}
+                      lastInspection={apiary.last_inspection || new Date().toISOString()}
                     />
                     <AlertDialog>
                       <AlertDialogTrigger asChild>

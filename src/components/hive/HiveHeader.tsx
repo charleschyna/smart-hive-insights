@@ -33,9 +33,11 @@ const HiveHeader: React.FC<HiveHeaderProps> = ({
         <div>
           <h1 className="text-2xl font-bold mb-2">{name}</h1>
           <div className="flex items-center text-muted-foreground mb-1">
-            <Link to={`/apiaries/${apiaryId}`} className="hover:text-honey-600">
-              {apiaryName || 'Unknown Apiary'}
-            </Link>
+            {apiaryId && (
+              <Link to={`/apiaries/${apiaryId}`} className="hover:text-honey-600">
+                {apiaryName || 'Unknown Apiary'}
+              </Link>
+            )}
           </div>
           <div className="flex items-center text-muted-foreground">
             <span>Last Inspection: {new Date(lastInspection).toLocaleDateString()}</span>

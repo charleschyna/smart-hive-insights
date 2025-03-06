@@ -1,11 +1,14 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const useHiveData = (id: string | undefined) => {
   const navigate = useNavigate();
   const [hive, setHive] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
   
   // Mock data for the monitoring time series
   const timeSeriesData = {
@@ -24,32 +27,63 @@ export const useHiveData = (id: string | undefined) => {
   };
   
   useEffect(() => {
-    // Load hive from localStorage
-    const loadData = () => {
-      const hives = JSON.parse(localStorage.getItem('hives') || '[]');
-      const foundHive = hives.find((h: any) => h.id === id);
-      
-      if (!foundHive) {
+    const fetchHiveData = async () => {
+      try {
+        if (!user || !id) return;
+        
+        const { data, error } = await supabase
+          .from('hives')
+          .select(`
+            *,
+            apiary:apiary_id (
+              id,
+              name
+            )
+          `)
+          .eq('id', id)
+          .maybeSingle();
+        
+        if (error) {
+          console.error('Error fetching hive:', error);
+          navigate('/hives');
+          return;
+        }
+        
+        if (!data) {
+          navigate('/hives');
+          return;
+        }
+        
+        setHive(data);
+        setLoading(false);
+      } catch (err) {
+        console.error('Unexpected error in hive details:', err);
         navigate('/hives');
-        return;
       }
-      
-      setHive(foundHive);
-      setLoading(false);
     };
     
-    loadData();
+    fetchHiveData();
     
-    // Set up event listener for storage changes
-    const handleStorageChange = () => {
-      loadData();
-    };
+    // Set up subscription for real-time updates
+    const channel = supabase
+      .channel('hive-detail-changes')
+      .on('postgres_changes', 
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'hives',
+          filter: `id=eq.${id}`
+        }, 
+        () => {
+          fetchHiveData();
+        }
+      )
+      .subscribe();
     
-    window.addEventListener('storage', handleStorageChange);
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
+      supabase.removeChannel(channel);
     };
-  }, [id, navigate]);
+  }, [id, navigate, user]);
 
   return { hive, loading, timeSeriesData };
 };
