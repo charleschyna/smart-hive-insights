@@ -72,24 +72,8 @@ const Sidebar = ({ isOpen, setIsOpen, onToggle }: SidebarProps) => {
       transition={{ duration: 0.4, delay: 0.1 }}
     >
       <div className="flex flex-col h-full">
-        <div className="p-4 flex justify-center items-center border-b border-gray-200 dark:border-gray-800">
-          <Link to="/dashboard" className="flex items-center justify-center">
-            <img 
-              src="/Logo_nobg.png" 
-              alt="Smart Nyuki" 
-              className={`transition-all duration-300 ${sidebarOpen ? 'h-12 w-auto' : 'h-10 w-auto'}`} 
-            />
-            {sidebarOpen && showLabels && (
-              <motion.span 
-                className="ml-2 text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-honey-500 to-honey-600"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.2 }}
-              >
-                Smart Nyuki
-              </motion.span>
-            )}
-          </Link>
+        <div className="border-b border-gray-200 dark:border-gray-800 h-16">
+          {/* Removed logo and name */}
         </div>
         
         <div className="py-6 flex-1">

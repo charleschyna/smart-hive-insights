@@ -6,7 +6,19 @@ import Navbar from '@/components/layout/Navbar';
 import HiveCard from '@/components/hive/HiveCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { MapPin, Calendar, PlusCircle, ArrowLeft, Edit } from 'lucide-react';
+import { MapPin, Calendar, PlusCircle, ArrowLeft, Edit, Trash2 } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const ApiaryDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +26,7 @@ const ApiaryDetail = () => {
   const [apiary, setApiary] = useState<any>(null);
   const [hives, setHives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   useEffect(() => {
     // Load apiary and associated hives from localStorage
@@ -48,14 +61,58 @@ const ApiaryDetail = () => {
       window.removeEventListener('storage', handleStorageChange);
     };
   }, [id, navigate]);
+
+  const handleDeleteHive = (hiveId: string, hiveName: string) => {
+    // Remove hive from localStorage
+    const updatedHives = hives.filter(hive => hive.id !== hiveId);
+    const allHives = JSON.parse(localStorage.getItem('hives') || '[]');
+    const updatedAllHives = allHives.filter((hive: any) => hive.id !== hiveId);
+    localStorage.setItem('hives', JSON.stringify(updatedAllHives));
+    
+    // Update apiary to reflect hive count change
+    const apiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
+    const updatedApiaries = apiaries.map((a: any) => {
+      if (a.id === id) {
+        const totalHives = (a.totalHives || 1) - 1;
+        return { ...a, totalHives: totalHives < 0 ? 0 : totalHives };
+      }
+      return a;
+    });
+    localStorage.setItem('apiaries', JSON.stringify(updatedApiaries));
+    
+    // Update UI
+    setHives(updatedHives);
+    setApiary({...apiary, totalHives: (apiary.totalHives || 1) - 1});
+    
+    // Add activity event
+    const activities = JSON.parse(localStorage.getItem('activities') || '[]');
+    activities.unshift({
+      id: Date.now().toString(),
+      type: 'hive_deleted',
+      entityId: hiveId,
+      entityName: hiveName,
+      timestamp: new Date().toISOString(),
+      description: `Hive "${hiveName}" was deleted from apiary "${apiary.name}"`
+    });
+    localStorage.setItem('activities', JSON.stringify(activities));
+    
+    // Notify user
+    toast({
+      title: 'Hive Deleted',
+      description: `${hiveName} has been removed from ${apiary.name}`,
+    });
+    
+    // Dispatch storage event to notify other tabs/components
+    window.dispatchEvent(new Event('storage'));
+  };
   
   if (loading) {
     return (
       <div className="flex h-screen bg-background">
-        <Sidebar />
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+        <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'}`}>
           <Navbar />
-          <main className="flex-1 flex items-center justify-center">
+          <main className="flex-1 flex items-center justify-center mt-16">
             <p>Loading apiary details...</p>
           </main>
         </div>
@@ -65,10 +122,10 @@ const ApiaryDetail = () => {
 
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'}`}>
         <Navbar />
-        <main className="flex-1 overflow-y-auto p-6 ml-16 md:ml-0">
+        <main className="flex-1 overflow-y-auto p-6 mt-16">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center mb-6">
               <Button asChild variant="ghost" size="sm" className="mr-4">
@@ -94,11 +151,13 @@ const ApiaryDetail = () => {
                         <span>Established: {new Date(apiary.established).toLocaleDateString()}</span>
                       </div>
                     </div>
-                    <Button asChild size="sm" variant="outline">
-                      <Link to={`/apiaries/${id}/edit`}>
-                        <Edit className="h-4 w-4 mr-2" /> Edit
-                      </Link>
-                    </Button>
+                    <div className="flex space-x-2">
+                      <Button asChild size="sm" variant="outline">
+                        <Link to={`/apiaries/${id}/edit`}>
+                          <Edit className="h-4 w-4 mr-2" /> Edit
+                        </Link>
+                      </Button>
+                    </div>
                   </div>
                   
                   <p className="text-muted-foreground mb-4">{apiary.description}</p>
@@ -151,18 +210,47 @@ const ApiaryDetail = () => {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {hives.map((hive) => (
-                    <HiveCard
-                      key={hive.id}
-                      id={hive.id}
-                      name={hive.name}
-                      queenAge={hive.queenAge}
-                      lastInspection={hive.lastInspection}
-                      health={hive.health}
-                      temperature={hive.temperature}
-                      humidity={hive.humidity}
-                      weight={hive.weight}
-                      imageUrl={hive.imageUrl}
-                    />
+                    <div key={hive.id} className="relative">
+                      <HiveCard
+                        id={hive.id}
+                        name={hive.name}
+                        queenAge={hive.queenAge}
+                        lastInspection={hive.lastInspection}
+                        health={hive.health}
+                        temperature={hive.temperature}
+                        humidity={hive.humidity}
+                        weight={hive.weight}
+                        imageUrl={hive.imageUrl}
+                      />
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            className="absolute top-2 right-2 h-8 w-8 p-0"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Hive</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{hive.name}"? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction 
+                              onClick={() => handleDeleteHive(hive.id, hive.name)}
+                              className="bg-red-500 hover:bg-red-600"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   ))}
                 </div>
               )}
