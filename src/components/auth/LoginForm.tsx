@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface LoginFormData {
   email: string;
@@ -18,11 +19,14 @@ interface LoginFormData {
 const LoginForm = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { signIn } = useAuth();
+  
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: '',
     rememberMe: false,
   });
+  
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   
@@ -66,19 +70,21 @@ const LoginForm = () => {
     
     setLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    const { error } = await signIn(formData.email, formData.password);
+    
+    if (error) {
       setLoading(false);
+      toast({
+        title: "Login failed",
+        description: error.message || "Please check your credentials and try again.",
+        variant: "destructive",
+      });
+    } else {
       toast({
         title: "Welcome back!",
         description: "Successfully logged in. Redirecting to dashboard...",
       });
-      
-      // Navigate to dashboard after successful login
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 1000);
-    }, 1500);
+    }
   };
   
   return (
