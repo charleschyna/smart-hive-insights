@@ -1,133 +1,85 @@
 
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
+import { Loader2, PlusCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, Edit, Plus } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Loader2 } from 'lucide-react';
-import ApiaryCard from '@/components/apiary/ApiaryCard';
 import HiveCard from '@/components/hive/HiveCard';
 import PageTransition from '@/components/layout/PageTransition';
-import { useToast } from '@/hooks/use-toast';
 
 const ApiaryDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  
   const [apiary, setApiary] = useState<any>(null);
   const [hives, setHives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
   
   useEffect(() => {
-    const fetchApiary = async () => {
+    const fetchApiaryDetails = async () => {
       try {
-        if (!id || !user) return;
-
-        const { data, error } = await supabase
+        if (!user || !id) return;
+        
+        // Fetch apiary details
+        const { data: apiaryData, error: apiaryError } = await supabase
           .from('apiaries')
           .select('*')
           .eq('id', id)
           .eq('user_id', user.id)
           .maybeSingle();
         
-        if (error) {
-          console.error('Error fetching apiary:', error);
-          toast({
-            title: "Error",
-            description: "Failed to load apiary details",
-            variant: "destructive",
-          });
-          navigate('/apiaries');
+        if (apiaryError) {
+          console.error('Error fetching apiary:', apiaryError);
           return;
         }
         
-        if (!data) {
-          toast({
-            title: "Not Found",
-            description: "The apiary you're looking for doesn't exist",
-            variant: "destructive",
-          });
-          navigate('/apiaries');
-          return;
-        }
+        setApiary(apiaryData);
         
-        setApiary(data);
-        fetchHives();
-      } catch (err) {
-        console.error('Unexpected error in apiary details:', err);
-        navigate('/apiaries');
-      }
-    };
-    
-    const fetchHives = async () => {
-      try {
-        if (!id || !user) return;
-        
-        const { data, error } = await supabase
+        // Fetch hives for this apiary
+        const { data: hivesData, error: hivesError } = await supabase
           .from('hives')
           .select('*')
           .eq('apiary_id', id)
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
+          .eq('user_id', user.id);
         
-        if (error) {
-          console.error('Error fetching hives:', error);
+        if (hivesError) {
+          console.error('Error fetching hives:', hivesError);
           return;
         }
         
-        setHives(data || []);
+        setHives(hivesData || []);
         setLoading(false);
       } catch (err) {
-        console.error('Unexpected error fetching hives:', err);
-        setLoading(false);
+        console.error('Unexpected error in apiary details:', err);
       }
     };
     
-    fetchApiary();
+    fetchApiaryDetails();
     
-    // Set up subscription for real-time updates to hives
-    const hivesSubscription = supabase
-      .channel('apiary-hives-changes')
+    // Set up real-time subscription for hives
+    const apiaryId = id;
+    const userId = user?.id;
+    
+    const channel = supabase
+      .channel('apiary-detail-changes')
       .on('postgres_changes', 
         { 
           event: '*', 
           schema: 'public', 
           table: 'hives',
-          filter: `apiary_id=eq.${id}`
+          filter: `apiary_id=eq.${apiaryId}`
         }, 
-        (payload) => {
-          fetchHives();
-        }
-      )
-      .subscribe();
-    
-    // Set up subscription for real-time updates to the apiary
-    const apiarySubscription = supabase
-      .channel('apiary-detail-changes')
-      .on('postgres_changes', 
-        { 
-          event: 'UPDATE', 
-          schema: 'public', 
-          table: 'apiaries',
-          filter: `id=eq.${id}`
-        }, 
-        (payload) => {
-          setApiary(payload.new);
+        () => {
+          fetchApiaryDetails();
         }
       )
       .subscribe();
     
     return () => {
-      supabase.removeChannel(hivesSubscription);
-      supabase.removeChannel(apiarySubscription);
+      supabase.removeChannel(channel);
     };
-  }, [id, navigate, toast, user]);
-  
+  }, [id, user]);
+
   if (loading) {
     return (
       <div className="h-[80vh] w-full flex items-center justify-center">
@@ -138,95 +90,78 @@ const ApiaryDetail = () => {
   
   return (
     <PageTransition>
-      <div className="container max-w-7xl mx-auto p-4">
-        <div className="flex items-center mb-6">
-          <Button asChild variant="ghost" size="sm" className="mr-4">
-            <Link to="/apiaries">
-              <ArrowLeft className="h-4 w-4 mr-2" /> Back to Apiaries
-            </Link>
-          </Button>
-        </div>
-        
+      <div className="container max-w-7xl mx-auto p-6">
         {apiary && (
-          <>
-            <div className="flex justify-between items-start mb-6">
+          <div className="space-y-8">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h1 className="text-2xl font-bold mb-2">{apiary.name}</h1>
-                <p className="text-muted-foreground">{apiary.location || 'No location specified'}</p>
+                <h1 className="text-3xl font-bold">{apiary.name}</h1>
+                <p className="text-muted-foreground mt-1">{apiary.location || 'No location specified'}</p>
               </div>
-              <div className="flex space-x-2">
-                <Button asChild variant="outline" size="sm">
-                  <Link to={`/apiaries/${id}/edit`}>
-                    <Edit className="h-4 w-4 mr-2" /> Edit Apiary
-                  </Link>
-                </Button>
-                <Button asChild size="sm">
-                  <Link to="/hives/new" state={{ apiaryId: id as string }}>
-                    <Plus className="h-4 w-4 mr-2" /> Add Hive
-                  </Link>
-                </Button>
+              
+              <Button asChild>
+                <Link to={`/hives/new?apiary=${apiary.id}`}>
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  Add Hive
+                </Link>
+              </Button>
+            </div>
+            
+            <div className="bg-white dark:bg-sidebar p-6 rounded-xl shadow-glass">
+              <h2 className="text-xl font-semibold mb-4">Apiary Information</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <p className="text-muted-foreground mb-1">Description</p>
+                  <p className="font-medium">{apiary.description || 'No description provided'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-1">Location</p>
+                  <p className="font-medium">{apiary.location || 'Not specified'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-1">Total Hives</p>
+                  <p className="font-medium">{hives.length}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-1">Created</p>
+                  <p className="font-medium">
+                    {apiary.created_at ? new Date(apiary.created_at).toLocaleDateString() : 'Unknown'}
+                  </p>
+                </div>
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-muted-foreground">Total Hives</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold">{apiary.total_hives || 0}</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-muted-foreground">Established</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold">{new Date(apiary.established).toLocaleDateString()}</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-muted-foreground">Last Inspection</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold">{new Date(apiary.last_inspection).toLocaleDateString()}</p>
-                </CardContent>
-              </Card>
-            </div>
-            
-            {apiary.description && (
-              <div className="mb-8">
-                <h2 className="text-xl font-semibold mb-2">Description</h2>
-                <p className="text-muted-foreground">{apiary.description}</p>
-              </div>
-            )}
-            
-            <Separator className="mb-8" />
-            
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-4">Hives in this Apiary</h2>
+            <div>
+              <h2 className="text-xl font-semibold mb-6">Hives in this Apiary</h2>
               
               {hives.length === 0 ? (
-                <div className="text-center p-10 border border-dashed rounded-lg">
-                  <p className="text-muted-foreground mb-4">No hives have been added to this apiary yet.</p>
-                  <Button asChild>
-                    <Link to="/hives/new" state={{ apiaryId: id }}>
-                      <Plus className="h-4 w-4 mr-2" /> Add Your First Hive
+                <div className="bg-muted/30 rounded-xl p-8 text-center">
+                  <h3 className="text-lg font-medium mb-2">No hives in this apiary yet</h3>
+                  <p className="text-muted-foreground mb-4">Add your first hive to start monitoring</p>
+                  <Button asChild size="sm">
+                    <Link to={`/hives/new?apiary=${apiary.id}`}>
+                      <PlusCircle className="h-4 w-4 mr-2" />
+                      Add First Hive
                     </Link>
                   </Button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {hives.map((hive) => (
-                    <HiveCard key={hive.id} hive={hive} />
+                    <HiveCard 
+                      key={hive.id}
+                      id={hive.id}
+                      name={hive.name}
+                      status={hive.status}
+                      queenColor={hive.queen_color}
+                      lastInspection={hive.last_inspection}
+                      apiaryName={apiary.name}
+                    />
                   ))}
                 </div>
               )}
             </div>
-          </>
+          </div>
         )}
       </div>
     </PageTransition>
