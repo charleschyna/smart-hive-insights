@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -18,9 +18,8 @@ interface LoginFormData {
 
 const LoginForm = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { toast } = useToast();
-  const { signIn } = useAuth();
+  const { signIn, isLoading: authLoading } = useAuth();
   
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
@@ -76,6 +75,7 @@ const LoginForm = () => {
     setLoading(true);
     
     try {
+      console.log("Attempting to sign in with:", formData.email);
       const { error } = await signIn(formData.email, formData.password);
       
       if (error) {
@@ -104,8 +104,7 @@ const LoginForm = () => {
           form: errorMessage
         }));
       } else {
-        // Navigate will happen automatically via AuthContext
-        // The from path will be handled in AuthContext
+        // Navigation will happen automatically via AuthContext
         toast({
           title: "Welcome back!",
           description: "Successfully logged in.",
@@ -120,6 +119,8 @@ const LoginForm = () => {
         description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
   
@@ -194,10 +195,13 @@ const LoginForm = () => {
       <Button 
         type="submit"
         className="w-full bg-honey-500 hover:bg-honey-600 text-black font-medium h-11"
-        disabled={loading}
+        disabled={loading || authLoading}
       >
-        {loading ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        {loading || authLoading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Logging in...
+          </>
         ) : (
           <>
             Log in <ArrowRight className="ml-2 h-4 w-4" />

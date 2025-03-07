@@ -66,6 +66,8 @@ export const useHiveData = (id: string | undefined) => {
     fetchHiveData();
     
     // Set up subscription for real-time updates
+    const hiveId = id; // Create a stable reference for the closure
+    
     const channel = supabase
       .channel('hive-detail-changes')
       .on('postgres_changes', 
@@ -73,9 +75,10 @@ export const useHiveData = (id: string | undefined) => {
           event: 'UPDATE', 
           schema: 'public', 
           table: 'hives',
-          filter: `id=eq.${id}`
+          filter: `id=eq.${hiveId}`
         }, 
-        () => {
+        (payload) => {
+          console.log("Received hive update:", payload);
           fetchHiveData();
         }
       )

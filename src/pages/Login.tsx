@@ -2,8 +2,28 @@
 import React from 'react';
 import AuthLayout from '@/components/auth/AuthLayout';
 import LoginForm from '@/components/auth/LoginForm';
+import { useAuth } from '@/contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 
 const Login = () => {
+  const { user, isLoading } = useAuth();
+
+  // If user is already logged in, redirect to dashboard
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // Show loading state separately from the form to avoid UI issues
+  if (isLoading) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-honey-500 mb-4" />
+        <p className="text-gray-500">Loading authentication...</p>
+      </div>
+    );
+  }
+
   return (
     <AuthLayout 
       title="Welcome Back" 

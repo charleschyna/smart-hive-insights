@@ -7,6 +7,22 @@ import HiveForm from '@/components/hive/HiveForm';
 import PageTransition from '@/components/layout/PageTransition';
 import { toast } from '@/hooks/use-toast';
 
+// Define the props type expected by HiveForm
+interface HiveFormValues {
+  name: string;
+  apiary_id: string;
+  queen_age: string;
+  queen_color: string;
+  health: string;
+  notes: string;
+}
+
+interface HiveFormPropsWithValues {
+  apiaries: any[];
+  initialValues: HiveFormValues;
+  onSubmit: (formData: any) => Promise<void>;
+}
+
 const NewHive = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -101,6 +117,16 @@ const NewHive = () => {
     }
   };
   
+  // Create initial values that match the expected HiveFormValues type
+  const formInitialValues: HiveFormValues = {
+    name: '',
+    apiary_id: initialApiaryId,
+    queen_age: '',
+    queen_color: '',
+    health: 'Healthy',
+    notes: '',
+  };
+  
   return (
     <PageTransition>
       <div className="container max-w-3xl mx-auto p-4">
@@ -121,16 +147,9 @@ const NewHive = () => {
             </button>
           </div>
         ) : (
-          <HiveForm 
+          <HiveForm
             apiaries={apiaries}
-            initialValues={{
-              name: '',
-              apiary_id: initialApiaryId,
-              queen_age: '',
-              queen_color: '',
-              health: 'Healthy',
-              notes: '',
-            }}
+            initialValues={formInitialValues}
             onSubmit={handleSubmit}
           />
         )}
