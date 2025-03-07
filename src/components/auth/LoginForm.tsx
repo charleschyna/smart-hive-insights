@@ -82,7 +82,15 @@ const LoginForm = () => {
         console.error('Login error:', error);
         setLoading(false);
         
-        const errorMessage = error.message || "Invalid credentials. Please check your email and password.";
+        // Display appropriate error message based on the error
+        let errorMessage = "Invalid credentials. Please check your email and password.";
+        if (error.message) {
+          if (error.message.includes("Invalid login credentials")) {
+            errorMessage = "Invalid email or password. Please try again.";
+          } else {
+            errorMessage = error.message;
+          }
+        }
         
         toast({
           title: "Login failed",
@@ -93,17 +101,15 @@ const LoginForm = () => {
         // Add a generic form error
         setErrors(prev => ({
           ...prev,
-          form: "Invalid email or password. Please try again."
+          form: errorMessage
         }));
       } else {
-        const from = location.state?.from?.pathname || '/dashboard';
-        
+        // Navigate will happen automatically via AuthContext
+        // The from path will be handled in AuthContext
         toast({
           title: "Welcome back!",
-          description: "Successfully logged in. Redirecting...",
+          description: "Successfully logged in.",
         });
-        
-        // Navigate will happen automatically via AuthContext
       }
     } catch (err) {
       console.error('Unexpected error during login:', err);

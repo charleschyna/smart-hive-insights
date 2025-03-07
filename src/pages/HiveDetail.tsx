@@ -1,127 +1,142 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import Sidebar from '@/components/layout/Sidebar';
-import Navbar from '@/components/layout/Navbar';
-import HiveDetailContent from '@/components/hive/HiveDetailContent';
+import { Loader2 } from 'lucide-react';
 import { useHiveData } from '@/hooks/useHiveData';
-import { Button } from '@/components/ui/button';
-import { Trash2 } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import HiveHeader from '@/components/hive/HiveHeader';
+import HiveDetailContent from '@/components/hive/HiveDetailContent';
+import PageTransition from '@/components/layout/PageTransition';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const HiveDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { hive, loading, timeSeriesData } = useHiveData(id);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { user } = useAuth();
+  const { toast } = useToast();
   
-  const handleDeleteHive = async () => {
-    if (!hive || !user) return;
+  const [hive, setHive] = useState<any>(null);
+  const [timeSeriesData, setTimeSeriesData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    const fetchHiveData = async () => {
+      try {
+        if (!user || !id) return;
+        
+        const { data, error } = await supabase
+          .from('hives')
+          .select(`
+            *,
+            apiary:apiary_id (
+              id,
+              name
+            )
+          `)
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .maybeSingle();
+        
+        if (error) {
+          console.error('Error fetching hive:', error);
+          toast({
+            title: "Error",
+            description: "Failed to load hive details",
+            variant: "destructive",
+          });
+          navigate('/hives');
+          return;
+        }
+        
+        if (!data) {
+          toast({
+            title: "Not Found",
+            description: "The hive you're looking for doesn't exist",
+            variant: "destructive",
+          });
+          navigate('/hives');
+          return;
+        }
+        
+        setHive(data);
+        
+        // Mock data for the monitoring time series
+        const mockTimeSeriesData = {
+          temperature: Array.from({ length: 24 }, (_, i) => ({
+            time: `${i}:00`,
+            value: 34 + Math.random() * 2
+          })),
+          humidity: Array.from({ length: 24 }, (_, i) => ({
+            time: `${i}:00`,
+            value: 63 + Math.random() * 5
+          })),
+          weight: Array.from({ length: 24 }, (_, i) => ({
+            time: `${i}:00`,
+            value: 31.5 + Math.random() * 1
+          }))
+        };
+        
+        setTimeSeriesData(mockTimeSeriesData);
+        setLoading(false);
+      } catch (err) {
+        console.error('Unexpected error in hive details:', err);
+        navigate('/hives');
+      }
+    };
     
-    try {
-      // Delete from Supabase
-      const { error } = await supabase
-        .from('hives')
-        .delete()
-        .eq('id', id);
-      
-      if (error) {
-        console.error('Error deleting hive:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to delete hive. Please try again.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      
-      // Update apiary hive count
-      if (hive.apiary_id) {
-        await supabase.rpc('decrement_hive_count', { apiary_id_param: hive.apiary_id });
-      }
-      
-      // Notify user
-      toast({
-        title: 'Hive Deleted',
-        description: `${hive.name} has been deleted successfully`,
-      });
-      
-      // Navigate back to hives
-      navigate('/hives');
-    } catch (err) {
-      console.error('Unexpected error deleting hive:', err);
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
+    fetchHiveData();
+    
+    // Set up subscription for real-time updates
+    const channel = supabase
+      .channel('hive-detail-changes')
+      .on('postgres_changes', 
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'hives',
+          filter: `id=eq.${id}`
+        }, 
+        (payload) => {
+          setHive(prev => ({ ...prev, ...payload.new }));
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id, navigate, toast, user]);
   
   if (loading) {
     return (
-      <div className="flex h-screen bg-background">
-        <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
-        <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'}`}>
-          <Navbar />
-          <main className="flex-1 flex items-center justify-center mt-16">
-            <p>Loading hive details...</p>
-          </main>
-        </div>
+      <div className="h-[80vh] w-full flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-honey-500" />
       </div>
     );
   }
-
+  
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
-      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'}`}>
-        <Navbar />
-        <main className="flex-1 overflow-y-auto p-6 mt-16">
-          <div className="flex justify-end mb-4">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm">
-                  <Trash2 className="h-4 w-4 mr-2" /> Delete Hive
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Hive</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Are you sure you want to delete "{hive?.name}"? This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction 
-                    onClick={handleDeleteHive}
-                    className="bg-red-500 hover:bg-red-600"
-                  >
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-          <HiveDetailContent hive={hive} timeSeriesData={timeSeriesData} />
-        </main>
+    <PageTransition>
+      <div className="container max-w-7xl mx-auto p-4">
+        {hive && (
+          <>
+            <HiveHeader 
+              name={hive.name}
+              apiaryId={hive.apiary?.id}
+              apiaryName={hive.apiary?.name}
+              lastInspection={hive.last_inspection}
+              id={hive.id}
+            />
+            
+            <HiveDetailContent 
+              hive={hive}
+              timeSeriesData={timeSeriesData}
+            />
+          </>
+        )}
       </div>
-    </div>
+    </PageTransition>
   );
 };
 

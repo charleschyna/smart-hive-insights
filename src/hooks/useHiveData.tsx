@@ -41,6 +41,7 @@ export const useHiveData = (id: string | undefined) => {
             )
           `)
           .eq('id', id)
+          .eq('user_id', user.id)
           .maybeSingle();
         
         if (error) {
