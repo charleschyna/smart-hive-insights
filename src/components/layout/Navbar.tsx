@@ -1,36 +1,24 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bell, Menu, X, LogOut } from 'lucide-react';
+import { Bell, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useAuth } from '@/contexts/AuthContext';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 const Navbar = () => {
   const location = useLocation();
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const { user, profile, signOut } = useAuth();
-  
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   // Check if user is on auth pages
   const isAuthPage = location.pathname === '/login' || location.pathname === '/signup';
   
-  // Check if user is logged in
-  const isLoggedIn = !!user;
+  // Check if user is logged in (placeholder)
+  const isLoggedIn = location.pathname !== '/' && !isAuthPage;
   
   useEffect(() => {
     const handleScroll = () => {
@@ -54,25 +42,6 @@ const Navbar = () => {
   };
   
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
-  
-  const handleSignOut = async () => {
-    await signOut();
-    toast({
-      title: "Logged out",
-      description: "You have been successfully logged out.",
-    });
-  };
-  
-  // Get user initials for avatar
-  const getUserInitials = () => {
-    if (profile?.first_name && profile?.last_name) {
-      return `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase();
-    }
-    if (user?.email) {
-      return user.email[0].toUpperCase();
-    }
-    return 'U';
-  };
   
   if (isAuthPage) return null;
   
@@ -125,29 +94,12 @@ const Navbar = () => {
                 transition={{ delay: 0.2 }}
                 whileHover={{ scale: 1.05 }}
               >
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Avatar className="h-9 w-9 transition-all hover:ring-2 hover:ring-honey-500 cursor-pointer">
-                      <AvatarImage src={profile?.avatar_url || ""} />
-                      <AvatarFallback className="bg-forest-100 text-forest-800">{getUserInitials()}</AvatarFallback>
-                    </Avatar>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link to="/profile" className="cursor-pointer w-full">Profile</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/settings" className="cursor-pointer w-full">Settings</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleSignOut} className="text-red-500 cursor-pointer">
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Log out</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <Link to="/profile">
+                  <Avatar className="h-9 w-9 transition-all hover:ring-2 hover:ring-honey-500">
+                    <AvatarImage src="" />
+                    <AvatarFallback className="bg-forest-100 text-forest-800">BK</AvatarFallback>
+                  </Avatar>
+                </Link>
               </motion.div>
             </div>
           </div>

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Loader2 } from 'lucide-react';
@@ -7,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface LoginFormData {
   email: string;
@@ -18,23 +18,13 @@ interface LoginFormData {
 const LoginForm = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signIn, user, isLoading: authLoading } = useAuth();
-  
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: '',
     rememberMe: false,
   });
-  
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
-  // Effect to redirect if already logged in
-  useEffect(() => {
-    if (user && !authLoading) {
-      navigate('/dashboard');
-    }
-  }, [user, authLoading, navigate]);
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -59,8 +49,6 @@ const LoginForm = () => {
     
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
     }
     
     if (!formData.password) {
@@ -78,46 +66,19 @@ const LoginForm = () => {
     
     setLoading(true);
     
-    try {
-      console.log("Attempting to sign in with:", formData.email);
-      const { error } = await signIn(formData.email, formData.password);
-      
-      if (error) {
-        console.error('Login error:', error);
-        setLoading(false);
-        
-        // Simplified error message handling
-        let errorMessage = "Invalid credentials. Please check your email and password.";
-        if (error.message) {
-          errorMessage = error.message;
-        }
-        
-        toast({
-          title: "Login failed",
-          description: errorMessage,
-          variant: "destructive",
-        });
-        
-        // Add a form error
-        setErrors(prev => ({
-          ...prev,
-          form: errorMessage
-        }));
-      } else {
-        // Success will be handled by auth context navigation
-      }
-    } catch (err) {
-      console.error('Unexpected error during login:', err);
+    // Simulate API call
+    setTimeout(() => {
       setLoading(false);
-      
       toast({
-        title: "Login error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive",
+        title: "Welcome back!",
+        description: "Successfully logged in. Redirecting to dashboard...",
       });
-    } finally {
-      setLoading(false);
-    }
+      
+      // Navigate to dashboard after successful login
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 1000);
+    }, 1500);
   };
   
   return (
@@ -128,12 +89,6 @@ const LoginForm = () => {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
     >
-      {errors.form && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
-          {errors.form}
-        </div>
-      )}
-      
       <div className="space-y-1">
         <Label htmlFor="email">Email</Label>
         <Input
@@ -144,7 +99,6 @@ const LoginForm = () => {
           value={formData.email}
           onChange={handleChange}
           className={errors.email ? 'border-red-500' : ''}
-          disabled={loading || authLoading}
         />
         {errors.email && (
           <p className="text-red-500 text-xs mt-1">{errors.email}</p>
@@ -169,7 +123,6 @@ const LoginForm = () => {
           value={formData.password}
           onChange={handleChange}
           className={errors.password ? 'border-red-500' : ''}
-          disabled={loading || authLoading}
         />
         {errors.password && (
           <p className="text-red-500 text-xs mt-1">{errors.password}</p>
@@ -181,7 +134,6 @@ const LoginForm = () => {
           id="rememberMe" 
           checked={formData.rememberMe}
           onCheckedChange={handleCheckboxChange}
-          disabled={loading || authLoading}
         />
         <label
           htmlFor="rememberMe"
@@ -194,13 +146,10 @@ const LoginForm = () => {
       <Button 
         type="submit"
         className="w-full bg-honey-500 hover:bg-honey-600 text-black font-medium h-11"
-        disabled={loading || authLoading}
+        disabled={loading}
       >
-        {loading || authLoading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Logging in...
-          </>
+        {loading ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (
           <>
             Log in <ArrowRight className="ml-2 h-4 w-4" />

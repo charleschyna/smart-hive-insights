@@ -1,130 +1,290 @@
+
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
-import { PlusCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { Separator } from "@/components/ui/separator"
-import { toast } from "@/hooks/use-toast"
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import Navbar from '@/components/layout/Navbar';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from '@/components/layout/Sidebar';
-import HiveForm from '@/components/forms/HiveForm';
+import Navbar from '@/components/layout/Navbar';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { toast } from '@/hooks/use-toast';
+import { Archive, Crown } from 'lucide-react';
 
 const NewHive = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  const { isLoading, error, data: apiaries } = useQuery({
-    queryKey: ['apiaries'],
-    queryFn: async () => {
-      if (!user) {
-        return [];
-      }
-
-      const { data, error } = await supabase
-        .from('apiaries')
-        .select('*')
-        .eq('user_id', user.id);
-
-      if (error) {
-        console.error("Error fetching apiaries:", error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch apiaries. Please try again.",
-          variant: "destructive",
-        });
-        return [];
-      }
-      return data || [];
-    },
+  const location = useLocation();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [apiaries, setApiaries] = useState<any[]>([]);
+  
+  // Get preselected apiary ID from location state if provided
+  const preselectedApiaryId = location.state?.preselectedApiaryId || '';
+  
+  const [formData, setFormData] = useState({
+    name: '',
+    apiaryId: preselectedApiaryId,
+    queenAge: '1',
+    queenColor: 'Blue',
+    beeType: 'Italian',
+    notes: '',
   });
 
   useEffect(() => {
-    if (error) {
-      console.error("Error fetching apiaries:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch apiaries. Please try again.",
-        variant: "destructive",
-      });
+    // Load apiaries from localStorage
+    const storedApiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
+    setApiaries(storedApiaries);
+    
+    // Set default apiaryId if any apiaries exist and none is preselected
+    if (storedApiaries.length > 0 && !formData.apiaryId) {
+      setFormData(prev => ({ ...prev, apiaryId: storedApiaries[0].id }));
     }
-  }, [error]);
+  }, [formData.apiaryId]);
 
-  const handleSubmit = async (hiveData: any) => {
-    if (!user) {
-      toast({
-        title: "Unauthorized",
-        description: "You must be logged in to create a hive.",
-        variant: "destructive",
-      });
-      return;
-    }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
 
     try {
-      const { data, error } = await supabase
-        .from('hives')
-        .insert([
-          {
-            ...hiveData,
-            user_id: user.id,
-          },
-        ])
-        .select()
-
-      if (error) {
-        console.error("Error creating hive:", error);
+      // Find the selected apiary
+      const selectedApiary = apiaries.find(a => a.id === formData.apiaryId);
+      
+      if (!selectedApiary) {
         toast({
-          title: "Error",
-          description: "Failed to create hive. Please try again.",
-          variant: "destructive",
+          title: 'Error',
+          description: 'Please select a valid apiary',
+          variant: 'destructive',
         });
+        setIsSubmitting(false);
         return;
       }
+      
+      // Mock adding hive to local storage
+      const hives = JSON.parse(localStorage.getItem('hives') || '[]');
+      const newHive = {
+        id: Date.now().toString(),
+        ...formData,
+        queenAge: parseInt(formData.queenAge),
+        queenInstalled: new Date().toISOString(),
+        lastInspection: new Date().toISOString(),
+        health: 'Good',
+        temperature: 35,
+        humidity: 65,
+        weight: 30,
+        activity: 'Normal',
+        sound: 'Normal',
+        imageUrl: '/placeholder.svg',
+        apiary: {
+          id: selectedApiary.id,
+          name: selectedApiary.name
+        }
+      };
+      
+      hives.push(newHive);
+      localStorage.setItem('hives', JSON.stringify(hives));
+      
+      // Update apiary hive count
+      const updatedApiaries = apiaries.map(apiary => {
+        if (apiary.id === selectedApiary.id) {
+          return {
+            ...apiary,
+            totalHives: (apiary.totalHives || 0) + 1
+          };
+        }
+        return apiary;
+      });
+      localStorage.setItem('apiaries', JSON.stringify(updatedApiaries));
+      
+      // Add activity event
+      const activities = JSON.parse(localStorage.getItem('activities') || '[]');
+      activities.unshift({
+        id: Date.now().toString(),
+        type: 'hive_added',
+        entityId: newHive.id,
+        entityName: newHive.name,
+        timestamp: new Date().toISOString(),
+        description: `New hive "${newHive.name}" was added to ${selectedApiary.name || 'an apiary'}`
+      });
+      localStorage.setItem('activities', JSON.stringify(activities));
+
+      // Trigger storage event to update other components
+      window.dispatchEvent(new Event('storage'));
 
       toast({
-        title: "Success",
-        description: "Hive created successfully!",
+        title: 'Hive Added',
+        description: `${formData.name} has been successfully added to ${selectedApiary.name || 'the apiary'}`,
       });
-
       navigate('/hives');
-    } catch (err) {
-      console.error("Unexpected error creating hive:", err);
+    } catch (error) {
+      console.error('Error adding hive:', error);
       toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to add hive. Please try again.',
+        variant: 'destructive',
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
-      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'}`}>
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
         <Navbar />
-        <main className="flex-1 overflow-y-auto p-6 mt-16">
-          <div className="max-w-4xl mx-auto">
-            <div className="mb-8 flex items-center justify-between">
-              <h1 className="text-2xl font-bold">Add New Hive</h1>
-              <Button asChild variant="outline">
-                <Link to="/hives">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Back to Hives
-                </Link>
+        <main className="flex-1 overflow-y-auto p-6 ml-16 md:ml-0">
+          <div className="max-w-3xl mx-auto">
+            <div className="flex items-center mb-6">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => navigate('/hives')}
+                className="mr-4"
+              >
+                ← Back to Hives
               </Button>
             </div>
-            <Separator className="mb-4" />
-            {isLoading ? (
-              <p>Loading apiaries...</p>
-            ) : (
-              <HiveForm
-                apiaries={apiaries}
-                onSubmit={handleSubmit}
-              />
-            )}
+            
+            <Card>
+              <CardContent className="p-6">
+                <h1 className="text-2xl font-bold mb-6">Add New Hive</h1>
+                
+                <form onSubmit={handleSubmit}>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1" htmlFor="name">
+                        Hive Name*
+                      </label>
+                      <Input
+                        id="name"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        placeholder="E.g., Hive A1"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-1" htmlFor="apiaryId">
+                        Apiary*
+                      </label>
+                      <select
+                        id="apiaryId"
+                        name="apiaryId"
+                        value={formData.apiaryId}
+                        onChange={handleChange}
+                        className="w-full rounded-md border border-input p-2"
+                        required
+                      >
+                        {apiaries.length === 0 ? (
+                          <option value="">No apiaries available - please add an apiary first</option>
+                        ) : (
+                          apiaries.map(apiary => (
+                            <option key={apiary.id} value={apiary.id}>
+                              {apiary.name} ({apiary.location})
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-1" htmlFor="queenAge">
+                          Queen Age (years)
+                        </label>
+                        <select
+                          id="queenAge"
+                          name="queenAge"
+                          value={formData.queenAge}
+                          onChange={handleChange}
+                          className="w-full rounded-md border border-input p-2"
+                        >
+                          <option value="1">1</option>
+                          <option value="2">2</option>
+                          <option value="3">3</option>
+                          <option value="4">4</option>
+                          <option value="5">5</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-1" htmlFor="queenColor">
+                          Queen Color Marking
+                        </label>
+                        <select
+                          id="queenColor"
+                          name="queenColor"
+                          value={formData.queenColor}
+                          onChange={handleChange}
+                          className="w-full rounded-md border border-input p-2"
+                        >
+                          <option value="White">White</option>
+                          <option value="Yellow">Yellow</option>
+                          <option value="Red">Red</option>
+                          <option value="Green">Green</option>
+                          <option value="Blue">Blue</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-1" htmlFor="beeType">
+                        Bee Type
+                      </label>
+                      <select
+                        id="beeType"
+                        name="beeType"
+                        value={formData.beeType}
+                        onChange={handleChange}
+                        className="w-full rounded-md border border-input p-2"
+                      >
+                        <option value="Italian">Italian</option>
+                        <option value="Carniolan">Carniolan</option>
+                        <option value="Buckfast">Buckfast</option>
+                        <option value="Russian">Russian</option>
+                        <option value="Caucasian">Caucasian</option>
+                        <option value="African">African</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-1" htmlFor="notes">
+                        Notes
+                      </label>
+                      <textarea
+                        id="notes"
+                        name="notes"
+                        value={formData.notes}
+                        onChange={handleChange}
+                        rows={4}
+                        className="w-full rounded-md border border-input p-2"
+                        placeholder="Additional notes about this hive"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="mt-6 flex justify-end space-x-4">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => navigate('/hives')}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      disabled={isSubmitting || apiaries.length === 0}
+                    >
+                      {isSubmitting ? 'Adding...' : 'Add Hive'}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
           </div>
         </main>
       </div>

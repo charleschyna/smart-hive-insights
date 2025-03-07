@@ -7,7 +7,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface SignupFormData {
   firstName: string;
@@ -20,8 +19,6 @@ interface SignupFormData {
 const SignupForm = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signUp } = useAuth();
-  
   const [formData, setFormData] = useState<SignupFormData>({
     firstName: '',
     lastName: '',
@@ -29,7 +26,6 @@ const SignupForm = () => {
     password: '',
     confirmPassword: '',
   });
-  
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   
@@ -80,24 +76,19 @@ const SignupForm = () => {
     
     setLoading(true);
     
-    const { error } = await signUp(
-      formData.email, 
-      formData.password,
-      formData.firstName,
-      formData.lastName
-    );
-    
-    setLoading(false);
-    
-    if (error) {
+    // Simulate API call
+    setTimeout(() => {
+      setLoading(false);
       toast({
-        title: "Signup failed",
-        description: error.message || "Please check your information and try again.",
-        variant: "destructive",
+        title: "Account created!",
+        description: "Welcome to Smart Nyuki. Redirecting you to the dashboard...",
       });
-    } else {
-      navigate('/login');
-    }
+      
+      // Navigate to dashboard after successful signup
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 1500);
+    }, 1500);
   };
   
   return (

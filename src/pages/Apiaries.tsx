@@ -1,120 +1,43 @@
-
 import React, { useEffect, useState } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
 import ApiaryCard from '@/components/apiary/ApiaryCard';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { PlusCircle, Trash2 } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { PlusCircle } from 'lucide-react';
 
 const Apiaries = () => {
   const [apiaries, setApiaries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const { user } = useAuth();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   useEffect(() => {
-    const fetchApiaries = async () => {
-      try {
-        if (!user) return;
-        
-        const { data, error } = await supabase
-          .from('apiaries')
-          .select('*')
-          .order('created_at', { ascending: false });
-        
-        if (error) {
-          console.error('Error fetching apiaries:', error);
-          return;
-        }
-        
-        setApiaries(data || []);
-      } catch (err) {
-        console.error('Unexpected error fetching apiaries:', err);
-      } finally {
-        setLoading(false);
-      }
+    // Load apiaries from localStorage
+    const loadApiaries = () => {
+      const storedApiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
+      setApiaries(storedApiaries);
+      setLoading(false);
     };
 
-    fetchApiaries();
+    loadApiaries();
     
-    // Set up subscription for real-time updates
-    const channel = supabase
-      .channel('apiaries-changes')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'apiaries',
-          filter: `user_id=eq.${user?.id}`
-        }, 
-        () => {
-          fetchApiaries();
-        }
-      )
-      .subscribe();
+    // Set up event listener for storage changes
+    const handleStorageChange = () => {
+      loadApiaries();
+    };
     
+    window.addEventListener('storage', handleStorageChange);
     return () => {
-      supabase.removeChannel(channel);
+      window.removeEventListener('storage', handleStorageChange);
     };
-  }, [user]);
-
-  const handleDeleteApiary = async (id: string) => {
-    try {
-      // Delete from Supabase
-      const { error } = await supabase
-        .from('apiaries')
-        .delete()
-        .eq('id', id);
-      
-      if (error) {
-        console.error('Error deleting apiary:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to delete apiary. Please try again.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      
-      // Update UI
-      setApiaries(apiaries.filter(apiary => apiary.id !== id));
-      
-      // Notify user
-      toast({
-        title: 'Apiary Deleted',
-        description: 'The apiary has been removed successfully',
-      });
-    } catch (err) {
-      console.error('Unexpected error deleting apiary:', err);
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
+  }, []);
 
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
-      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'}`}>
+      <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!setIsSidebarOpen)} />
+      <div className="flex-1 flex flex-col overflow-hidden">
         <Navbar />
-        <main className="flex-1 overflow-y-auto p-6 mt-16">
+        <main className={`flex-1 overflow-y-auto p-6 transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'} mt-16`}>
           <div className="max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-8">
               <h1 className="text-2xl font-bold text-left">Manage Apiaries</h1>
@@ -142,44 +65,15 @@ const Apiaries = () => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {apiaries.map((apiary) => (
-                  <div key={apiary.id} className="relative">
-                    <ApiaryCard
-                      id={apiary.id}
-                      name={apiary.name}
-                      location={apiary.location}
-                      totalHives={apiary.total_hives || 0}
-                      imageUrl={apiary.image_url || '/placeholder.svg'}
-                      lastInspection={apiary.last_inspection || new Date().toISOString()}
-                    />
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button 
-                          variant="destructive" 
-                          size="sm"
-                          className="absolute top-2 right-2 h-8 w-8 p-0"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Apiary</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to delete "{apiary.name}"? This will also remove all hives associated with this apiary. This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={() => handleDeleteApiary(apiary.id)}
-                            className="bg-red-500 hover:bg-red-600"
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
+                  <ApiaryCard
+                    key={apiary.id}
+                    id={apiary.id}
+                    name={apiary.name}
+                    location={apiary.location}
+                    totalHives={apiary.totalHives || 0}
+                    imageUrl={apiary.imageUrl || '/placeholder.svg'}
+                    lastInspection={apiary.lastInspection || new Date().toISOString()}
+                  />
                 ))}
               </div>
             )}

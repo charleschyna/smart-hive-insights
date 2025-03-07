@@ -5,8 +5,6 @@ import HiveOverview from '@/components/dashboard/HiveOverview';
 import StatCard from '@/components/dashboard/StatCard';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { BarChart3, ListPlus, ThermometerSun, Droplets, ArrowUpRight, Scale, PlusCircle } from 'lucide-react';
 
 const Dashboard = () => {
@@ -14,92 +12,37 @@ const Dashboard = () => {
   const [hiveCount, setHiveCount] = useState(0);
   const [recentHives, setRecentHives] = useState<any[]>([]);
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const { user } = useAuth();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        if (!user) return;
-        
-        // Fetch apiaries count
-        const { count: apiaryCountData, error: apiaryError } = await supabase
-          .from('apiaries')
-          .select('*', { count: 'exact', head: true });
-        
-        if (apiaryError) {
-          console.error('Error fetching apiary count:', apiaryError);
-        } else {
-          setApiaryCount(apiaryCountData || 0);
-        }
-        
-        // Fetch hives count
-        const { count: hiveCountData, error: hiveError } = await supabase
-          .from('hives')
-          .select('*', { count: 'exact', head: true });
-        
-        if (hiveError) {
-          console.error('Error fetching hive count:', hiveError);
-        } else {
-          setHiveCount(hiveCountData || 0);
-        }
-        
-        // Fetch recent hives
-        const { data: hivesData, error: hivesError } = await supabase
-          .from('hives')
-          .select(`
-            *,
-            apiary:apiary_id (
-              id,
-              name
-            )
-          `)
-          .order('created_at', { ascending: false })
-          .limit(3);
-        
-        if (hivesError) {
-          console.error('Error fetching recent hives:', hivesError);
-        } else {
-          setRecentHives(hivesData || []);
-        }
-      } catch (err) {
-        console.error('Unexpected error fetching dashboard data:', err);
-      }
+    const apiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
+    const hives = JSON.parse(localStorage.getItem('hives') || '[]');
+    const activities = JSON.parse(localStorage.getItem('activities') || '[]');
+    
+    setApiaryCount(apiaries.length);
+    setHiveCount(hives.length);
+    
+    setRecentHives(hives.slice(0, 3));
+    setRecentActivities(activities.slice(0, 4));
+    
+    console.log("Dashboard component mounted");
+    
+    const handleStorageChange = () => {
+      const updatedApiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
+      const updatedHives = JSON.parse(localStorage.getItem('hives') || '[]');
+      const updatedActivities = JSON.parse(localStorage.getItem('activities') || '[]');
+      
+      setApiaryCount(updatedApiaries.length);
+      setHiveCount(updatedHives.length);
+      setRecentHives(updatedHives.slice(0, 3));
+      setRecentActivities(updatedActivities.slice(0, 4));
     };
     
-    fetchDashboardData();
-    
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel('dashboard-changes')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'hives',
-          filter: `user_id=eq.${user?.id}`
-        }, 
-        () => {
-          fetchDashboardData();
-        }
-      )
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'apiaries',
-          filter: `user_id=eq.${user?.id}`
-        }, 
-        () => {
-          fetchDashboardData();
-        }
-      )
-      .subscribe();
-    
+    window.addEventListener('storage', handleStorageChange);
     return () => {
-      supabase.removeChannel(channel);
+      window.removeEventListener('storage', handleStorageChange);
     };
-  }, [user]);
+  }, []);
 
   const getRelativeTime = (timestamp: string) => {
     const now = new Date();
@@ -120,7 +63,7 @@ const Dashboard = () => {
     { 
       title: 'Total Apiaries', 
       value: apiaryCount.toString(), 
-      change: `+${apiaryCount}`, 
+      change: '+' + apiaryCount, 
       icon: <ListPlus className="h-5 w-5" />,
       linkTo: '/apiaries',
       color: 'honey' as const
@@ -128,7 +71,7 @@ const Dashboard = () => {
     { 
       title: 'Total Hives', 
       value: hiveCount.toString(), 
-      change: `+${hiveCount}`, 
+      change: '+' + hiveCount, 
       icon: <BarChart3 className="h-5 w-5" />,
       linkTo: '/hives',
       color: 'forest' as const
@@ -161,10 +104,10 @@ const Dashboard = () => {
 
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
-      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'}`}>
+      <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
+      <div className="flex-1 flex flex-col overflow-hidden">
         <Navbar />
-        <main className="flex-1 overflow-y-auto p-6 mt-16">
+        <main className={`flex-1 overflow-y-auto p-6 transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'} mt-16`}>
           <div className="max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-8">
               <h1 className="text-2xl font-bold text-left">Hive Dashboard</h1>
@@ -283,7 +226,7 @@ const Dashboard = () => {
                       humidity={hive.humidity}
                       weight={hive.weight}
                       activity={hive.activity}
-                      lastUpdated={hive.last_inspection}
+                      lastUpdated={hive.lastInspection}
                     />
                   ))}
                 </div>
