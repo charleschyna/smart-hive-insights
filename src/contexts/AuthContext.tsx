@@ -24,16 +24,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Initial session check - done only once when component mounts
   useEffect(() => {
-    const setData = async () => {
+    const checkSession = async () => {
       try {
+        console.log("Checking initial session...");
         const { data: { session }, error } = await supabase.auth.getSession();
+        
         if (error) {
           console.error('Error getting session:', error);
           setIsLoading(false);
           return;
         }
 
+        console.log("Initial session check result:", session ? "Logged in" : "Not logged in");
         setSession(session);
         setUser(session?.user || null);
         
@@ -57,8 +61,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    setData();
+    checkSession();
+  }, []);
 
+  // Auth state change listener
+  useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log(`Auth state changed: ${event}`);
       setSession(session);
@@ -95,6 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     try {
+      console.log("Attempting to sign in with:", email);
       setIsLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -106,6 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error };
       }
       
+      console.log("Sign in successful, data:", data);
       toast({
         title: "Login successful",
         description: "Welcome back to Smart Nyuki!",

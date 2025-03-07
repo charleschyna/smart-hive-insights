@@ -152,7 +152,6 @@ const ApiaryDetail = () => {
                       key={hive.id}
                       id={hive.id}
                       name={hive.name}
-                      status={hive.status}
                       queenColor={hive.queen_color}
                       lastInspection={hive.last_inspection}
                       apiaryName={apiary.name}

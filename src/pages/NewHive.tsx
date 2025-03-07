@@ -117,7 +117,7 @@ const NewHive = () => {
         <div className="bg-white dark:bg-sidebar rounded-xl shadow-glass p-6">
           <HiveForm
             apiaries={apiaries}
-            defaultApiaryId={preSelectedApiaryId || undefined}
+            selectedApiaryId={preSelectedApiaryId || undefined}
             onSubmit={handleSubmit}
           />
         </div>

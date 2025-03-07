@@ -1,70 +1,42 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  PlusCircle, 
-  Search,
-  Filter, 
-  ArrowUpDown, 
-  Loader2 
-} from 'lucide-react';
+import { Loader2, PlusCircle, Search, FilterX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import HiveCard from '@/components/hive/HiveCard';
-import PageTransition from '@/components/layout/PageTransition';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import HiveCard from '@/components/hive/HiveCard';
+import PageTransition from '@/components/layout/PageTransition';
 
 const Hives = () => {
   const [hives, setHives] = useState<any[]>([]);
   const [apiaries, setApiaries] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterApiary, setFilterApiary] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<string>('name');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [isLoading, setIsLoading] = useState(true);
+  const [selectedApiary, setSelectedApiary] = useState<string | null>(null);
   const { user } = useAuth();
   
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchHivesAndApiaries = async () => {
       try {
         if (!user) return;
         
-        setIsLoading(true);
-        
-        // Fetch apiaries for filtering
-        const { data: apiariesData, error: apiariesError } = await supabase
-          .from('apiaries')
-          .select('id, name')
-          .eq('user_id', user.id);
-        
-        if (apiariesError) {
-          console.error('Error fetching apiaries:', apiariesError);
-        } else {
-          setApiaries(apiariesData || []);
-        }
-        
-        // Fetch all hives with their related apiary info
+        // Fetch all hives
         const { data: hivesData, error: hivesError } = await supabase
           .from('hives')
           .select(`
             *,
-            apiary:apiary_id (
+            apiaries (
               id,
               name
             )
@@ -73,20 +45,32 @@ const Hives = () => {
         
         if (hivesError) {
           console.error('Error fetching hives:', hivesError);
-        } else {
-          setHives(hivesData || []);
+          return;
         }
         
-        setIsLoading(false);
+        // Fetch all apiaries for the filter dropdown
+        const { data: apiariesData, error: apiariesError } = await supabase
+          .from('apiaries')
+          .select('id, name')
+          .eq('user_id', user.id);
+        
+        if (apiariesError) {
+          console.error('Error fetching apiaries:', apiariesError);
+          return;
+        }
+        
+        setHives(hivesData || []);
+        setApiaries(apiariesData || []);
+        setLoading(false);
       } catch (err) {
         console.error('Unexpected error:', err);
-        setIsLoading(false);
+        setLoading(false);
       }
     };
     
-    fetchData();
-    
-    // Subscribe to changes
+    fetchHivesAndApiaries();
+
+    // Set up real-time subscription for hives
     const userId = user?.id;
     
     const channel = supabase
@@ -95,11 +79,11 @@ const Hives = () => {
         { 
           event: '*', 
           schema: 'public', 
-          table: 'hives',
+          table: 'hives', 
           filter: `user_id=eq.${userId}`
         }, 
         () => {
-          fetchData();
+          fetchHivesAndApiaries();
         }
       )
       .subscribe();
@@ -108,45 +92,45 @@ const Hives = () => {
       supabase.removeChannel(channel);
     };
   }, [user]);
-
-  // Filter and sort hives
+  
+  // Filter hives based on search query and selected apiary
   const filteredHives = hives.filter(hive => {
-    const matchesSearch = hive.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesApiary = !filterApiary || hive.apiary_id === filterApiary;
+    const matchesSearch = searchQuery === '' || 
+      hive.name.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesApiary = selectedApiary === null || 
+      hive.apiary_id === selectedApiary;
+    
     return matchesSearch && matchesApiary;
   });
   
-  const sortedHives = [...filteredHives].sort((a, b) => {
-    let valueA, valueB;
-    
-    switch (sortBy) {
-      case 'name':
-        valueA = a.name;
-        valueB = b.name;
-        break;
-      case 'apiary':
-        valueA = a.apiary?.name || '';
-        valueB = b.apiary?.name || '';
-        break;
-      case 'lastInspection':
-        valueA = a.last_inspection ? new Date(a.last_inspection).getTime() : 0;
-        valueB = b.last_inspection ? new Date(b.last_inspection).getTime() : 0;
-        break;
-      default:
-        valueA = a.name;
-        valueB = b.name;
-    }
-    
-    if (valueA < valueB) return sortOrder === 'asc' ? -1 : 1;
-    if (valueA > valueB) return sortOrder === 'asc' ? 1 : -1;
-    return 0;
-  });
-
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  };
+  
+  const handleApiaryChange = (value: string) => {
+    setSelectedApiary(value === 'all' ? null : value);
+  };
+  
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedApiary(null);
+  };
+  
+  if (loading) {
+    return (
+      <div className="h-[80vh] w-full flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-honey-500" />
+      </div>
+    );
+  }
+  
   return (
     <PageTransition>
       <div className="container max-w-7xl mx-auto p-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <h1 className="text-3xl font-bold">My Hives</h1>
+          
           <Button asChild>
             <Link to="/hives/new">
               <PlusCircle className="h-4 w-4 mr-2" />
@@ -155,106 +139,80 @@ const Hives = () => {
           </Button>
         </div>
         
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search hives..."
-              className="pl-9"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          
-          <Select
-            value={filterApiary || ''}
-            onValueChange={(value) => setFilterApiary(value || null)}
-          >
-            <SelectTrigger className="w-full md:w-[200px]">
-              <SelectValue placeholder="Filter by apiary" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">All Apiaries</SelectItem>
-              {apiaries.map((apiary) => (
-                <SelectItem key={apiary.id} value={apiary.id}>
-                  {apiary.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full md:w-auto">
-                <ArrowUpDown className="h-4 w-4 mr-2" />
-                Sort
+        <div className="bg-white dark:bg-sidebar p-6 rounded-xl shadow-glass mb-8">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search hives..."
+                className="pl-9"
+                value={searchQuery}
+                onChange={handleSearchChange}
+              />
+            </div>
+            
+            <div className="w-full md:w-64">
+              <Select value={selectedApiary || 'all'} onValueChange={handleApiaryChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by apiary" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Apiaries</SelectLabel>
+                    <SelectItem value="all">All Apiaries</SelectItem>
+                    {apiaries.map(apiary => (
+                      <SelectItem key={apiary.id} value={apiary.id}>
+                        {apiary.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {(searchQuery || selectedApiary) && (
+              <Button variant="outline" onClick={clearFilters} className="flex-shrink-0">
+                <FilterX className="h-4 w-4 mr-2" />
+                Clear Filters
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuCheckboxItem
-                checked={sortBy === 'name'}
-                onCheckedChange={() => setSortBy('name')}
-              >
-                Hive Name
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={sortBy === 'apiary'}
-                onCheckedChange={() => setSortBy('apiary')}
-              >
-                Apiary
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={sortBy === 'lastInspection'}
-                onCheckedChange={() => setSortBy('lastInspection')}
-              >
-                Last Inspection Date
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuCheckboxItem
-                checked={sortOrder === 'asc'}
-                onCheckedChange={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-              >
-                Ascending
-              </DropdownMenuCheckboxItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            )}
+          </div>
         </div>
         
-        {isLoading ? (
-          <div className="h-64 flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-honey-500" />
-          </div>
-        ) : sortedHives.length === 0 ? (
+        {filteredHives.length === 0 ? (
           <div className="bg-muted/30 rounded-xl p-8 text-center">
-            <h3 className="text-lg font-medium mb-2">No hives found</h3>
-            <p className="text-muted-foreground mb-4">
-              {searchQuery || filterApiary
-                ? "Try adjusting your search or filters"
-                : "Add your first hive to start tracking your bees"}
-            </p>
-            
-            {!searchQuery && !filterApiary && (
-              <Button asChild size="sm">
-                <Link to="/hives/new">
-                  <PlusCircle className="h-4 w-4 mr-2" />
-                  Add Your First Hive
-                </Link>
-              </Button>
+            {hives.length === 0 ? (
+              <>
+                <h2 className="text-xl font-semibold mb-2">No hives yet</h2>
+                <p className="text-muted-foreground mb-4">Add your first hive to start monitoring</p>
+                <Button asChild>
+                  <Link to="/hives/new">
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Add First Hive
+                  </Link>
+                </Button>
+              </>
+            ) : (
+              <>
+                <h2 className="text-xl font-semibold mb-2">No matching hives</h2>
+                <p className="text-muted-foreground mb-4">Try adjusting your filters</p>
+                <Button variant="outline" onClick={clearFilters}>
+                  <FilterX className="h-4 w-4 mr-2" />
+                  Clear Filters
+                </Button>
+              </>
             )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sortedHives.map((hive) => (
-              <HiveCard 
+            {filteredHives.map(hive => (
+              <HiveCard
                 key={hive.id}
                 id={hive.id}
                 name={hive.name}
-                status={hive.status}
                 queenColor={hive.queen_color}
                 lastInspection={hive.last_inspection}
-                apiaryName={hive.apiary?.name}
+                apiaryName={hive.apiaries?.name || 'Unknown Apiary'}
               />
             ))}
           </div>

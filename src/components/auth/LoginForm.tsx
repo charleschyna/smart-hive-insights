@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Loader2 } from 'lucide-react';
@@ -19,7 +19,7 @@ interface LoginFormData {
 const LoginForm = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signIn, isLoading: authLoading } = useAuth();
+  const { signIn, user, isLoading: authLoading } = useAuth();
   
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
@@ -29,6 +29,13 @@ const LoginForm = () => {
   
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Effect to redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -59,8 +66,6 @@ const LoginForm = () => {
     
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
     }
     
     setErrors(newErrors);
@@ -148,6 +153,7 @@ const LoginForm = () => {
           value={formData.email}
           onChange={handleChange}
           className={errors.email ? 'border-red-500' : ''}
+          disabled={loading || authLoading}
         />
         {errors.email && (
           <p className="text-red-500 text-xs mt-1">{errors.email}</p>
@@ -172,6 +178,7 @@ const LoginForm = () => {
           value={formData.password}
           onChange={handleChange}
           className={errors.password ? 'border-red-500' : ''}
+          disabled={loading || authLoading}
         />
         {errors.password && (
           <p className="text-red-500 text-xs mt-1">{errors.password}</p>
@@ -183,6 +190,7 @@ const LoginForm = () => {
           id="rememberMe" 
           checked={formData.rememberMe}
           onCheckedChange={handleCheckboxChange}
+          disabled={loading || authLoading}
         />
         <label
           htmlFor="rememberMe"
