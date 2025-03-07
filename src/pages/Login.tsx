@@ -17,16 +17,17 @@ const Login = () => {
     }
   }, [user, isLoading, navigate]);
 
-  // Show loading state separately from the form to avoid UI issues
+  // Show a more brief loading state
   if (isLoading) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-honey-500 mb-4" />
-        <p className="text-gray-500">Loading authentication...</p>
+        <p className="text-gray-500">Loading...</p>
       </div>
     );
   }
 
+  // If we're not loading and don't have a user, show the login form
   return (
     <AuthLayout 
       title="Welcome Back" 

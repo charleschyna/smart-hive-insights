@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -32,10 +31,10 @@ const LoginForm = () => {
   
   // Effect to redirect if already logged in
   useEffect(() => {
-    if (user) {
+    if (user && !authLoading) {
       navigate('/dashboard');
     }
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -87,14 +86,10 @@ const LoginForm = () => {
         console.error('Login error:', error);
         setLoading(false);
         
-        // Display appropriate error message based on the error
+        // Simplified error message handling
         let errorMessage = "Invalid credentials. Please check your email and password.";
         if (error.message) {
-          if (error.message.includes("Invalid login credentials")) {
-            errorMessage = "Invalid email or password. Please try again.";
-          } else {
-            errorMessage = error.message;
-          }
+          errorMessage = error.message;
         }
         
         toast({
@@ -103,17 +98,13 @@ const LoginForm = () => {
           variant: "destructive",
         });
         
-        // Add a generic form error
+        // Add a form error
         setErrors(prev => ({
           ...prev,
           form: errorMessage
         }));
       } else {
-        // Navigation will happen automatically via AuthContext
-        toast({
-          title: "Welcome back!",
-          description: "Successfully logged in.",
-        });
+        // Success will be handled by auth context navigation
       }
     } catch (err) {
       console.error('Unexpected error during login:', err);

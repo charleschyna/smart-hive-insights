@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Session, User } from '@supabase/supabase-js';
@@ -57,10 +56,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (err) {
         console.error('Unexpected error in auth setup:', err);
       } finally {
+        // Always set loading to false after checking session
         setIsLoading(false);
       }
     };
 
+    // Execute session check
     checkSession();
   }, []);
 

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Loader2, PlusCircle } from 'lucide-react';
@@ -148,13 +147,12 @@ const ApiaryDetail = () => {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {hives.map((hive) => (
-                    <HiveCard 
+                    <HiveCard
                       key={hive.id}
                       id={hive.id}
                       name={hive.name}
-                      queenColor={hive.queen_color}
                       lastInspection={hive.last_inspection}
-                      apiaryName={apiary.name}
+                      apiaryName={apiary?.name || 'Unknown'}
                     />
                   ))}
                 </div>

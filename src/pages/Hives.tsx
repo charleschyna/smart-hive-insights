@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2, PlusCircle, Search, FilterX } from 'lucide-react';
@@ -205,14 +204,13 @@ const Hives = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredHives.map(hive => (
+            {filteredHives.map((hive) => (
               <HiveCard
                 key={hive.id}
                 id={hive.id}
                 name={hive.name}
-                queenColor={hive.queen_color}
                 lastInspection={hive.last_inspection}
-                apiaryName={hive.apiaries?.name || 'Unknown Apiary'}
+                apiaryName={hive.apiary?.name || 'Unknown'}
               />
             ))}
           </div>

@@ -1,128 +1,134 @@
-
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
-import PageTransition from '@/components/layout/PageTransition';
-import HiveForm from '@/components/hive/HiveForm';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { PlusCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Separator } from "@/components/ui/separator"
+import { toast } from "@/hooks/use-toast"
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import Navbar from '@/components/layout/Navbar';
+import Sidebar from '@/components/layout/Sidebar';
+import HiveForm from '@/components/forms/HiveForm';
 
 const NewHive = () => {
-  const [searchParams] = useSearchParams();
-  const preSelectedApiaryId = searchParams.get('apiary');
-  const [apiaries, setApiaries] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { user } = useAuth();
-  
-  useEffect(() => {
-    const fetchApiaries = async () => {
-      try {
-        if (!user) return;
-        
-        const { data, error } = await supabase
-          .from('apiaries')
-          .select('id, name')
-          .eq('user_id', user.id);
-        
-        if (error) {
-          console.error('Error fetching apiaries:', error);
-          toast({
-            title: 'Error',
-            description: 'Failed to load apiaries. Please try again.',
-            variant: 'destructive',
-          });
-          return;
-        }
-        
-        setApiaries(data || []);
-        setLoading(false);
-      } catch (err) {
-        console.error('Unexpected error:', err);
-        toast({
-          title: 'Error',
-          description: 'An unexpected error occurred. Please try again.',
-          variant: 'destructive',
-        });
-        setLoading(false);
-      }
-    };
-    
-    fetchApiaries();
-  }, [toast, user]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  const handleSubmit = async (formData: any) => {
+  const { isLoading, error, data: apiaries } = useQuery({
+    queryKey: ['apiaries'],
+    queryFn: async () => {
+      if (!user) {
+        return [];
+      }
+
+      const { data, error } = await supabase
+        .from('apiaries')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error("Error fetching apiaries:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch apiaries. Please try again.",
+          variant: "destructive",
+        });
+        return [];
+      }
+      return data || [];
+    },
+  });
+
+  useEffect(() => {
+    if (error) {
+      console.error("Error fetching apiaries:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch apiaries. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [error]);
+
+  const handleSubmit = async (hiveData: any) => {
+    if (!user) {
+      toast({
+        title: "Unauthorized",
+        description: "You must be logged in to create a hive.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      if (!user) return;
-      
-      setLoading(true);
-      
-      // Add user_id to the hive data
-      const hiveData = {
-        ...formData,
-        user_id: user.id,
-      };
-      
-      // Insert the new hive
       const { data, error } = await supabase
         .from('hives')
-        .insert(hiveData)
+        .insert([
+          {
+            ...hiveData,
+            user_id: user.id,
+          },
+        ])
         .select()
-        .single();
-      
+
       if (error) {
-        console.error('Error adding hive:', error);
+        console.error("Error creating hive:", error);
         toast({
-          title: 'Error',
-          description: 'Failed to create hive. Please try again.',
-          variant: 'destructive',
+          title: "Error",
+          description: "Failed to create hive. Please try again.",
+          variant: "destructive",
         });
-        setLoading(false);
         return;
       }
-      
+
       toast({
-        title: 'Success',
-        description: 'Hive created successfully!',
+        title: "Success",
+        description: "Hive created successfully!",
       });
-      
-      // Redirect to the new hive's detail page
-      navigate(`/hives/${data.id}`);
+
+      navigate('/hives');
     } catch (err) {
-      console.error('Unexpected error:', err);
+      console.error("Unexpected error creating hive:", err);
       toast({
-        title: 'Error',
-        description: 'An unexpected error occurred. Please try again.',
-        variant: 'destructive',
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
       });
-      setLoading(false);
     }
   };
 
-  if (loading && apiaries.length === 0) {
-    return (
-      <div className="h-[80vh] w-full flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-honey-500" />
-      </div>
-    );
-  }
-
   return (
-    <PageTransition>
-      <div className="container max-w-3xl mx-auto p-6">
-        <h1 className="text-3xl font-bold mb-8">Add New Hive</h1>
-        
-        <div className="bg-white dark:bg-sidebar rounded-xl shadow-glass p-6">
-          <HiveForm
-            apiaries={apiaries}
-            selectedApiaryId={preSelectedApiaryId || undefined}
-            onSubmit={handleSubmit}
-          />
-        </div>
+    <div className="flex h-screen bg-background">
+      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'}`}>
+        <Navbar />
+        <main className="flex-1 overflow-y-auto p-6 mt-16">
+          <div className="max-w-4xl mx-auto">
+            <div className="mb-8 flex items-center justify-between">
+              <h1 className="text-2xl font-bold">Add New Hive</h1>
+              <Button asChild variant="outline">
+                <Link to="/hives">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Back to Hives
+                </Link>
+              </Button>
+            </div>
+            <Separator className="mb-4" />
+            {isLoading ? (
+              <p>Loading apiaries...</p>
+            ) : (
+              <HiveForm
+                apiaries={apiaries}
+                onSubmit={handleSubmit}
+              />
+            )}
+          </div>
+        </main>
       </div>
-    </PageTransition>
+    </div>
   );
 };
 
