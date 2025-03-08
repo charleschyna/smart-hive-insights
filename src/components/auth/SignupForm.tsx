@@ -3,10 +3,10 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SignupFormData {
   firstName: string;
@@ -18,7 +18,7 @@ interface SignupFormData {
 
 const SignupForm = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { signUp } = useAuth();
   const [formData, setFormData] = useState<SignupFormData>({
     firstName: '',
     lastName: '',
@@ -76,19 +76,22 @@ const SignupForm = () => {
     
     setLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      toast({
-        title: "Account created!",
-        description: "Welcome to Smart Nyuki. Redirecting you to the dashboard...",
-      });
+    try {
+      const { error } = await signUp(
+        formData.email, 
+        formData.password,
+        formData.firstName,
+        formData.lastName
+      );
       
-      // Navigate to dashboard after successful signup
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 1500);
-    }, 1500);
+      if (!error) {
+        // Since Supabase requires email verification by default, we'll navigate to a confirmation page
+        // or the login page depending on your setup
+        navigate('/login');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
   
   return (

@@ -1,13 +1,13 @@
 
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface LoginFormData {
   email: string;
@@ -17,7 +17,8 @@ interface LoginFormData {
 
 const LoginForm = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const location = useLocation();
+  const { signIn } = useAuth();
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: '',
@@ -25,6 +26,9 @@ const LoginForm = () => {
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Get the redirect path from location state or default to dashboard
+  const from = location.state?.from?.pathname || '/dashboard';
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -66,19 +70,16 @@ const LoginForm = () => {
     
     setLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      toast({
-        title: "Welcome back!",
-        description: "Successfully logged in. Redirecting to dashboard...",
-      });
+    try {
+      const { error } = await signIn(formData.email, formData.password);
       
-      // Navigate to dashboard after successful login
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 1000);
-    }, 1500);
+      if (!error) {
+        // Redirect to the page they were trying to access or dashboard
+        navigate(from);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
   
   return (

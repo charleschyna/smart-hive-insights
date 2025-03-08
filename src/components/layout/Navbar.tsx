@@ -1,24 +1,33 @@
+
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bell, Menu, X } from 'lucide-react';
+import { Bell, Menu, X, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Navbar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { user, signOut } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   // Check if user is on auth pages
   const isAuthPage = location.pathname === '/login' || location.pathname === '/signup';
-  
-  // Check if user is logged in (placeholder)
-  const isLoggedIn = location.pathname !== '/' && !isAuthPage;
   
   useEffect(() => {
     const handleScroll = () => {
@@ -41,9 +50,22 @@ const Navbar = () => {
     });
   };
   
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
+  
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   
   if (isAuthPage) return null;
+  
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (!user) return 'BK';
+    
+    const email = user.email || '';
+    return email.substring(0, 2).toUpperCase();
+  };
   
   return (
     <motion.header 
@@ -68,7 +90,7 @@ const Navbar = () => {
           </Link>
         </div>
         
-        {isLoggedIn ? (
+        {user ? (
           <div className="flex items-center space-x-1 sm:space-x-3">
             {!isMobile && (
               <motion.div
@@ -94,12 +116,29 @@ const Navbar = () => {
                 transition={{ delay: 0.2 }}
                 whileHover={{ scale: 1.05 }}
               >
-                <Link to="/profile">
-                  <Avatar className="h-9 w-9 transition-all hover:ring-2 hover:ring-honey-500">
-                    <AvatarImage src="" />
-                    <AvatarFallback className="bg-forest-100 text-forest-800">BK</AvatarFallback>
-                  </Avatar>
-                </Link>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Avatar className="h-9 w-9 transition-all hover:ring-2 hover:ring-honey-500 cursor-pointer">
+                      <AvatarImage src="" />
+                      <AvatarFallback className="bg-forest-100 text-forest-800">{getUserInitials()}</AvatarFallback>
+                    </Avatar>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate('/profile')}>
+                      Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/settings')}>
+                      Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut} className="text-red-500">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Log out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </motion.div>
             </div>
           </div>

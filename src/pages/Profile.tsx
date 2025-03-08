@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
@@ -7,14 +7,100 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { User, Bell, Shield, Camera } from 'lucide-react';
+import { User, Bell, Shield, Camera, Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 const Profile = () => {
+  const { user, supabase, updateProfile } = useAuth();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [profileData, setProfileData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+  });
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (error) throw error;
+        
+        setProfileData({
+          firstName: data.first_name || '',
+          lastName: data.last_name || '',
+          email: user.email || '',
+          phone: data.phone || '',
+        });
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load profile data',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [user, supabase, toast]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setProfileData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveChanges = async () => {
+    if (!user) return;
+    
+    setSaving(true);
+    try {
+      await updateProfile({
+        first_name: profileData.firstName,
+        last_name: profileData.lastName,
+        phone: profileData.phone,
+        updated_at: new Date(),
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-screen bg-background">
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Navbar />
+          <main className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-honey-500" />
+              <p>Loading profile data...</p>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Navbar title="Profile" />
+        <Navbar />
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-3xl mx-auto">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 mb-8">
@@ -27,9 +113,9 @@ const Profile = () => {
                 </Button>
               </div>
               <div className="text-center sm:text-left">
-                <h1 className="text-2xl font-bold">John Doe</h1>
-                <p className="text-muted-foreground">john.doe@example.com</p>
-                <p className="text-sm text-muted-foreground mt-1">Member since August 2023</p>
+                <h1 className="text-2xl font-bold">{`${profileData.firstName} ${profileData.lastName}`}</h1>
+                <p className="text-muted-foreground">{profileData.email}</p>
+                <p className="text-sm text-muted-foreground mt-1">Member since {user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'recently'}</p>
               </div>
             </div>
 
@@ -49,26 +135,61 @@ const Profile = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="firstName">First Name</Label>
-                        <Input id="firstName" defaultValue="John" />
+                        <Input 
+                          id="firstName" 
+                          name="firstName"
+                          value={profileData.firstName} 
+                          onChange={handleInputChange}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="lastName">Last Name</Label>
-                        <Input id="lastName" defaultValue="Doe" />
+                        <Input 
+                          id="lastName" 
+                          name="lastName"
+                          value={profileData.lastName} 
+                          onChange={handleInputChange}
+                        />
                       </div>
                     </div>
                     
                     <div className="space-y-2">
                       <Label htmlFor="email">Email</Label>
-                      <Input id="email" type="email" defaultValue="john.doe@example.com" />
+                      <Input 
+                        id="email" 
+                        type="email" 
+                        value={profileData.email} 
+                        disabled 
+                        className="bg-muted"
+                      />
                     </div>
                     
                     <div className="space-y-2">
                       <Label htmlFor="phone">Phone Number</Label>
-                      <Input id="phone" type="tel" defaultValue="+1 (555) 123-4567" />
+                      <Input 
+                        id="phone" 
+                        name="phone"
+                        type="tel" 
+                        value={profileData.phone} 
+                        onChange={handleInputChange}
+                        placeholder="+1 (555) 123-4567"
+                      />
                     </div>
                     
                     <div className="pt-4">
-                      <Button>Save Changes</Button>
+                      <Button 
+                        onClick={handleSaveChanges}
+                        disabled={saving}
+                      >
+                        {saving ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          'Save Changes'
+                        )}
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
