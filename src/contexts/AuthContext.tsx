@@ -1,17 +1,12 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { createClient, SupabaseClient, User, AuthResponse } from '@supabase/supabase-js';
-
-// Create a dummy client when environment variables are not available
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { User, AuthResponse } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AuthContextProps {
   user: User | null;
   loading: boolean;
-  supabase: SupabaseClient; // Add supabase client to the context
+  supabase: typeof supabase;
   signUp: (email: string, password: string, userData?: Record<string, any>) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -121,7 +116,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       value={{
         user,
         loading,
-        supabase, // Export the supabase client
+        supabase,
         signUp,
         signIn,
         signOut,
