@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export const useHiveData = (id: string | undefined) => {
   const navigate = useNavigate();
-  const { supabase, user } = useAuth();
+  const { user, supabase } = useAuth();
   const { toast } = useToast();
   const [hive, setHive] = useState<any>(null);
   const [loading, setLoading] = useState(true);

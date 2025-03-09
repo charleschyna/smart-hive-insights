@@ -11,6 +11,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 interface AuthContextProps {
   user: User | null;
   loading: boolean;
+  supabase: SupabaseClient; // Add supabase client to the context
   signUp: (email: string, password: string, userData?: Record<string, any>) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -120,6 +121,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       value={{
         user,
         loading,
+        supabase, // Export the supabase client
         signUp,
         signIn,
         signOut,
