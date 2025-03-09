@@ -1,29 +1,27 @@
 
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 
-// Define Props interface
 interface SignupFormProps {
-  signUp: (email: string, password: string, userData?: Record<string, any>) => Promise<{ error: Error | null }>;
+  onSubmit: (email: string, password: string, userData: { firstName: string; lastName: string }) => Promise<boolean>;
 }
 
-const SignupForm: React.FC<SignupFormProps> = ({ signUp }) => {
-  const navigate = useNavigate();
+const SignupForm: React.FC<SignupFormProps> = ({ onSubmit }) => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     confirmPassword: '',
-    agreeToTerms: false,
+    firstName: '',
+    lastName: '',
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -37,26 +35,14 @@ const SignupForm: React.FC<SignupFormProps> = ({ signUp }) => {
       });
     }
   };
-  
-  const handleCheckboxChange = (checked: boolean) => {
-    setFormData(prev => ({ ...prev, agreeToTerms: checked }));
-    
-    if (errors.agreeToTerms) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors.agreeToTerms;
-        return newErrors;
-      });
-    }
-  };
-  
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
     
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email';
+      newErrors.email = 'Email is invalid';
     }
     
     if (!formData.password) {
@@ -69,14 +55,18 @@ const SignupForm: React.FC<SignupFormProps> = ({ signUp }) => {
       newErrors.confirmPassword = 'Passwords do not match';
     }
     
-    if (!formData.agreeToTerms) {
-      newErrors.agreeToTerms = 'You must agree to the terms';
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = 'First name is required';
+    }
+    
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = 'Last name is required';
     }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -85,29 +75,19 @@ const SignupForm: React.FC<SignupFormProps> = ({ signUp }) => {
     setLoading(true);
     
     try {
-      const { error } = await signUp(formData.email, formData.password, {
-        email: formData.email,
+      const success = await onSubmit(formData.email, formData.password, {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
       });
       
-      if (!error) {
-        // Redirect to dashboard or verification page
-        navigate('/dashboard');
-      } else {
-        // Handle signup error
-        if (error.message.includes('email')) {
-          setErrors(prev => ({ ...prev, email: error.message }));
-        } else {
-          setErrors(prev => ({ ...prev, form: error.message }));
-        }
+      if (!success) {
+        setLoading(false);
       }
     } catch (error) {
-      console.error('Signup error:', error);
-      setErrors(prev => ({ ...prev, form: 'An unexpected error occurred' }));
-    } finally {
       setLoading(false);
     }
   };
-  
+
   return (
     <motion.form
       onSubmit={handleSubmit}
@@ -116,11 +96,39 @@ const SignupForm: React.FC<SignupFormProps> = ({ signUp }) => {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
     >
-      {errors.form && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
-          {errors.form}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-1">
+          <Label htmlFor="firstName">First Name</Label>
+          <Input
+            id="firstName"
+            name="firstName"
+            type="text"
+            placeholder="John"
+            value={formData.firstName}
+            onChange={handleChange}
+            className={errors.firstName ? 'border-red-500' : ''}
+          />
+          {errors.firstName && (
+            <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>
+          )}
         </div>
-      )}
+        
+        <div className="space-y-1">
+          <Label htmlFor="lastName">Last Name</Label>
+          <Input
+            id="lastName"
+            name="lastName"
+            type="text"
+            placeholder="Doe"
+            value={formData.lastName}
+            onChange={handleChange}
+            className={errors.lastName ? 'border-red-500' : ''}
+          />
+          {errors.lastName && (
+            <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>
+          )}
+        </div>
+      </div>
       
       <div className="space-y-1">
         <Label htmlFor="email">Email</Label>
@@ -170,23 +178,6 @@ const SignupForm: React.FC<SignupFormProps> = ({ signUp }) => {
         )}
       </div>
       
-      <div className="flex items-center space-x-2">
-        <Checkbox 
-          id="agreeToTerms" 
-          checked={formData.agreeToTerms}
-          onCheckedChange={handleCheckboxChange}
-        />
-        <label
-          htmlFor="agreeToTerms"
-          className={`text-sm font-medium leading-none ${errors.agreeToTerms ? 'text-red-500' : ''}`}
-        >
-          I agree to the terms and conditions
-        </label>
-      </div>
-      {errors.agreeToTerms && (
-        <p className="text-red-500 text-xs mt-1">{errors.agreeToTerms}</p>
-      )}
-      
       <Button 
         type="submit"
         className="w-full bg-honey-500 hover:bg-honey-600 text-black font-medium h-11"
@@ -196,7 +187,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ signUp }) => {
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (
           <>
-            Sign up <ArrowRight className="ml-2 h-4 w-4" />
+            Create Account <ArrowRight className="ml-2 h-4 w-4" />
           </>
         )}
       </Button>

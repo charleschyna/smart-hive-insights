@@ -28,7 +28,12 @@ export const useHiveData = (id: string | undefined) => {
   };
   
   useEffect(() => {
-    if (!id || !user) return;
+    if (!id || !user) {
+      if (!user) {
+        navigate('/login');
+      }
+      return;
+    }
     
     const fetchHive = async () => {
       setLoading(true);
@@ -42,7 +47,6 @@ export const useHiveData = (id: string | undefined) => {
             apiaries(name)
           `)
           .eq('id', id)
-          .eq('user_id', user.id)
           .single();
         
         if (error) {

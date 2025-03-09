@@ -1,17 +1,49 @@
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import SignupForm from './SignupForm';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 const SignupFormWrapper = () => {
+  const navigate = useNavigate();
   const { signUp } = useAuth();
-  
-  // Create a wrapper function that matches the expected parameter count
-  const handleSignUp = (email: string, password: string, userData?: Record<string, any>) => {
-    return signUp(email, password, userData);
+  const { toast } = useToast();
+
+  const handleSignup = async (email: string, password: string, userData: { 
+    firstName: string;
+    lastName: string;
+  }) => {
+    try {
+      const { error } = await signUp(email, password, userData);
+      
+      if (error) {
+        toast({
+          title: 'Signup failed',
+          description: error.message,
+          variant: 'destructive',
+        });
+        return false;
+      }
+      
+      toast({
+        title: 'Account created!',
+        description: 'Your account has been successfully created. You can now log in.',
+      });
+      
+      navigate('/login');
+      return true;
+    } catch (error) {
+      toast({
+        title: 'Signup failed',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      });
+      return false;
+    }
   };
-  
-  return <SignupForm signUp={handleSignUp} />;
+
+  return <SignupForm onSubmit={handleSignup} />;
 };
 
 export default SignupFormWrapper;

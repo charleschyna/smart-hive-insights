@@ -1,37 +1,90 @@
 
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
 import HiveCard from '@/components/hive/HiveCard';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { PlusCircle } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 const Hives = () => {
   const [hives, setHives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { user, supabase } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Load hives from localStorage
-    const loadHives = () => {
-      const storedHives = JSON.parse(localStorage.getItem('hives') || '[]');
-      setHives(storedHives);
-      setLoading(false);
-    };
-
-    loadHives();
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     
-    // Set up event listener for storage changes
-    const handleStorageChange = () => {
-      loadHives();
+    const fetchHives = async () => {
+      setLoading(true);
+      
+      try {
+        const { data, error } = await supabase
+          .from('hives')
+          .select(`
+            *,
+            apiaries(name)
+          `)
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          console.error('Error fetching hives:', error);
+          toast({
+            title: 'Error',
+            description: 'Failed to load hives',
+            variant: 'destructive',
+          });
+          setHives([]);
+        } else {
+          setHives(data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching hives:', error);
+        toast({
+          title: 'Error',
+          description: 'An unexpected error occurred while loading hives',
+          variant: 'destructive',
+        });
+        setHives([]);
+      } finally {
+        setLoading(false);
+      }
     };
     
-    window.addEventListener('storage', handleStorageChange);
+    fetchHives();
+    
+    // Set up real-time subscription
+    const hivesSubscription = supabase
+      .channel('public:hives')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'hives',
+        filter: `user_id=eq.${user.id}`
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setHives(prev => [payload.new, ...prev]);
+        } else if (payload.eventType === 'UPDATE') {
+          setHives(prev => prev.map(hive => hive.id === payload.new.id ? payload.new : hive));
+        } else if (payload.eventType === 'DELETE') {
+          setHives(prev => prev.filter(hive => hive.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+      
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
+      supabase.removeChannel(hivesSubscription);
     };
-  }, []);
+  }, [navigate, supabase, toast, user]);
 
   return (
     <div className="flex h-screen bg-background">
@@ -70,13 +123,13 @@ const Hives = () => {
                     key={hive.id}
                     id={hive.id}
                     name={hive.name}
-                    queenAge={hive.queenAge}
-                    lastInspection={hive.lastInspection}
+                    queenAge={hive.queen_age}
+                    lastInspection={hive.last_inspection}
                     health={hive.health}
                     temperature={hive.temperature}
                     humidity={hive.humidity}
                     weight={hive.weight}
-                    imageUrl={hive.imageUrl}
+                    imageUrl={hive.image_url || '/placeholder.svg'}
                   />
                 ))}
               </div>

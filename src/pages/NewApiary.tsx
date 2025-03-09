@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '@/components/layout/Sidebar';
@@ -5,12 +6,16 @@ import Navbar from '@/components/layout/Navbar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { MapPin, Calendar } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const NewApiary = () => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user, supabase } = useAuth();
+  const { toast } = useToast();
+  
   const [formData, setFormData] = useState({
     name: '',
     location: '',
@@ -23,45 +28,62 @@ const NewApiary = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    if (!user) {
+      toast({
+        title: 'Authentication required',
+        description: 'You must be logged in to create an apiary',
+        variant: 'destructive',
+      });
+      navigate('/login');
+      return;
+    }
+    
     setIsSubmitting(true);
 
-    // In a real app, this would be an API call
-    setTimeout(() => {
-      // Mock adding apiary to local storage
-      const apiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
+    try {
       const newApiary = {
-        id: Date.now().toString(),
-        ...formData,
-        totalHives: 0,
-        lastInspection: new Date().toISOString(),
-        established: new Date().toISOString(),
-        imageUrl: '/placeholder.svg'
+        name: formData.name,
+        location: formData.location,
+        description: formData.description,
+        coordinates: formData.coordinates,
+        user_id: user.id
       };
       
-      apiaries.push(newApiary);
-      localStorage.setItem('apiaries', JSON.stringify(apiaries));
+      const { data, error } = await supabase
+        .from('apiaries')
+        .insert(newApiary)
+        .select()
+        .single();
       
-      // Add activity event
-      const activities = JSON.parse(localStorage.getItem('activities') || '[]');
-      activities.unshift({
-        id: Date.now().toString(),
-        type: 'apiary_added',
-        entityId: newApiary.id,
-        entityName: newApiary.name,
-        timestamp: new Date().toISOString(),
-        description: `New apiary "${newApiary.name}" was added`
-      });
-      localStorage.setItem('activities', JSON.stringify(activities));
-
-      setIsSubmitting(false);
+      if (error) {
+        console.error('Error creating apiary:', error);
+        toast({
+          title: 'Failed to create apiary',
+          description: error.message,
+          variant: 'destructive',
+        });
+        return;
+      }
+      
       toast({
         title: 'Apiary Added',
         description: `${formData.name} has been successfully added`,
       });
+      
       navigate('/apiaries');
-    }, 1000);
+    } catch (error) {
+      console.error('Error in apiary creation:', error);
+      toast({
+        title: 'An error occurred',
+        description: 'Something went wrong while creating the apiary',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

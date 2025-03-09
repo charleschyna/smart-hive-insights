@@ -1,37 +1,87 @@
 
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
 import ApiaryCard from '@/components/apiary/ApiaryCard';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { PlusCircle } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 const Apiaries = () => {
   const [apiaries, setApiaries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const { user, supabase } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Load apiaries from localStorage
-    const loadApiaries = () => {
-      const storedApiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
-      setApiaries(storedApiaries);
-      setLoading(false);
-    };
-
-    loadApiaries();
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     
-    // Set up event listener for storage changes
-    const handleStorageChange = () => {
-      loadApiaries();
+    const fetchApiaries = async () => {
+      setLoading(true);
+      
+      try {
+        const { data, error } = await supabase
+          .from('apiaries')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          console.error('Error fetching apiaries:', error);
+          toast({
+            title: 'Error',
+            description: 'Failed to load apiaries',
+            variant: 'destructive',
+          });
+          setApiaries([]);
+        } else {
+          setApiaries(data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching apiaries:', error);
+        toast({
+          title: 'Error',
+          description: 'An unexpected error occurred while loading apiaries',
+          variant: 'destructive',
+        });
+        setApiaries([]);
+      } finally {
+        setLoading(false);
+      }
     };
     
-    window.addEventListener('storage', handleStorageChange);
+    fetchApiaries();
+    
+    // Set up real-time subscription
+    const apiariesSubscription = supabase
+      .channel('public:apiaries')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'apiaries',
+        filter: `user_id=eq.${user.id}`
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setApiaries(prev => [payload.new, ...prev]);
+        } else if (payload.eventType === 'UPDATE') {
+          setApiaries(prev => prev.map(apiary => apiary.id === payload.new.id ? payload.new : apiary));
+        } else if (payload.eventType === 'DELETE') {
+          setApiaries(prev => prev.filter(apiary => apiary.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+      
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
+      supabase.removeChannel(apiariesSubscription);
     };
-  }, []);
+  }, [navigate, supabase, toast, user]);
 
   return (
     <div className="flex h-screen bg-background">
@@ -70,10 +120,10 @@ const Apiaries = () => {
                     key={apiary.id}
                     id={apiary.id}
                     name={apiary.name}
-                    location={apiary.location}
-                    totalHives={apiary.totalHives || 0}
-                    imageUrl={apiary.imageUrl || '/placeholder.svg'}
-                    lastInspection={apiary.lastInspection || new Date().toISOString()}
+                    location={apiary.location || 'Unknown location'}
+                    totalHives={apiary.total_hives || 0}
+                    imageUrl={apiary.image_url || '/placeholder.svg'}
+                    lastInspection={apiary.last_inspection || new Date().toISOString()}
                   />
                 ))}
               </div>

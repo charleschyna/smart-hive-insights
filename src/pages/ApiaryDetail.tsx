@@ -7,6 +7,8 @@ import HiveCard from '@/components/hive/HiveCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { MapPin, Calendar, PlusCircle, ArrowLeft, Edit } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 const ApiaryDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -14,40 +16,120 @@ const ApiaryDetail = () => {
   const [apiary, setApiary] = useState<any>(null);
   const [hives, setHives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user, supabase } = useAuth();
+  const { toast } = useToast();
   
   useEffect(() => {
-    // Load apiary and associated hives from localStorage
-    const loadData = () => {
-      const apiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
-      const foundApiary = apiaries.find((a: any) => a.id === id);
-      
-      if (!foundApiary) {
-        navigate('/apiaries');
-        return;
+    if (!id || !user) {
+      if (!user) {
+        navigate('/login');
       }
+      return;
+    }
+    
+    const fetchData = async () => {
+      setLoading(true);
       
-      setApiary(foundApiary);
-      
-      // Find hives associated with this apiary
-      const allHives = JSON.parse(localStorage.getItem('hives') || '[]');
-      const apiaryHives = allHives.filter((h: any) => h.apiaryId === id);
-      setHives(apiaryHives);
-      
-      setLoading(false);
+      try {
+        // Fetch apiary data
+        const { data: apiaryData, error: apiaryError } = await supabase
+          .from('apiaries')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (apiaryError) {
+          console.error('Error fetching apiary:', apiaryError);
+          toast({
+            title: 'Error',
+            description: 'Failed to load apiary data',
+            variant: 'destructive',
+          });
+          navigate('/apiaries');
+          return;
+        }
+        
+        if (!apiaryData) {
+          toast({
+            title: 'Apiary not found',
+            description: 'The requested apiary does not exist or you do not have access to it',
+            variant: 'destructive',
+          });
+          navigate('/apiaries');
+          return;
+        }
+        
+        setApiary(apiaryData);
+        
+        // Fetch hives in this apiary
+        const { data: hivesData, error: hivesError } = await supabase
+          .from('hives')
+          .select('*')
+          .eq('apiary_id', id)
+          .order('created_at', { ascending: false });
+        
+        if (hivesError) {
+          console.error('Error fetching hives:', hivesError);
+          toast({
+            title: 'Error',
+            description: 'Failed to load hives for this apiary',
+            variant: 'destructive',
+          });
+          setHives([]);
+        } else {
+          setHives(hivesData || []);
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        toast({
+          title: 'An error occurred',
+          description: 'Something went wrong while loading the data',
+          variant: 'destructive',
+        });
+        navigate('/apiaries');
+      } finally {
+        setLoading(false);
+      }
     };
     
-    loadData();
+    fetchData();
     
-    // Set up event listener for storage changes
-    const handleStorageChange = () => {
-      loadData();
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
+    // Set up real-time subscriptions
+    const apiarySubscription = supabase
+      .channel(`apiary:${id}`)
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'apiaries',
+        filter: `id=eq.${id}`
+      }, (payload) => {
+        setApiary(payload.new);
+      })
+      .subscribe();
+      
+    const hivesSubscription = supabase
+      .channel(`hives:apiary:${id}`)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'hives',
+        filter: `apiary_id=eq.${id}`
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setHives(prev => [payload.new, ...prev]);
+        } else if (payload.eventType === 'UPDATE') {
+          setHives(prev => prev.map(hive => hive.id === payload.new.id ? payload.new : hive));
+        } else if (payload.eventType === 'DELETE') {
+          setHives(prev => prev.filter(hive => hive.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+      
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
+      supabase.removeChannel(apiarySubscription);
+      supabase.removeChannel(hivesSubscription);
     };
-  }, [id, navigate]);
+  }, [id, navigate, supabase, toast, user]);
   
   if (loading) {
     return (
@@ -87,11 +169,11 @@ const ApiaryDetail = () => {
                       <h1 className="text-2xl font-bold mb-2">{apiary.name}</h1>
                       <div className="flex items-center text-muted-foreground mb-1">
                         <MapPin className="h-4 w-4 mr-1" />
-                        <span>{apiary.location}</span>
+                        <span>{apiary.location || 'No location set'}</span>
                       </div>
                       <div className="flex items-center text-muted-foreground">
                         <Calendar className="h-4 w-4 mr-1" />
-                        <span>Established: {new Date(apiary.established).toLocaleDateString()}</span>
+                        <span>Established: {new Date(apiary.established || apiary.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>
                     <Button asChild size="sm" variant="outline">
@@ -101,16 +183,16 @@ const ApiaryDetail = () => {
                     </Button>
                   </div>
                   
-                  <p className="text-muted-foreground mb-4">{apiary.description}</p>
+                  <p className="text-muted-foreground mb-4">{apiary.description || 'No description available'}</p>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
                     <div className="bg-muted/40 rounded-lg p-4">
                       <p className="text-sm text-muted-foreground mb-1">Total Hives</p>
-                      <p className="text-2xl font-bold">{apiary.totalHives || 0}</p>
+                      <p className="text-2xl font-bold">{apiary.total_hives || 0}</p>
                     </div>
                     <div className="bg-muted/40 rounded-lg p-4">
                       <p className="text-sm text-muted-foreground mb-1">Last Inspection</p>
-                      <p className="text-2xl font-bold">{new Date(apiary.lastInspection).toLocaleDateString()}</p>
+                      <p className="text-2xl font-bold">{apiary.last_inspection ? new Date(apiary.last_inspection).toLocaleDateString() : 'Never'}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -155,13 +237,13 @@ const ApiaryDetail = () => {
                       key={hive.id}
                       id={hive.id}
                       name={hive.name}
-                      queenAge={hive.queenAge}
-                      lastInspection={hive.lastInspection}
+                      queenAge={hive.queen_age}
+                      lastInspection={hive.last_inspection}
                       health={hive.health}
                       temperature={hive.temperature}
                       humidity={hive.humidity}
                       weight={hive.weight}
-                      imageUrl={hive.imageUrl}
+                      imageUrl={hive.image_url || '/placeholder.svg'}
                     />
                   ))}
                 </div>
