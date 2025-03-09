@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface LoginFormData {
   email: string;
@@ -19,6 +20,7 @@ const LoginForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signIn } = useAuth();
+  const { toast } = useToast();
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: '',
@@ -71,13 +73,34 @@ const LoginForm = () => {
     setLoading(true);
     
     try {
+      console.log("Attempting to sign in with:", formData.email);
       const { error } = await signIn(formData.email, formData.password);
       
-      if (!error) {
-        // Redirect to the page they were trying to access or dashboard
-        navigate(from);
+      if (error) {
+        console.error("Login error:", error);
+        toast({
+          title: 'Login failed',
+          description: error.message,
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
       }
-    } finally {
+      
+      toast({
+        title: 'Login successful',
+        description: 'Welcome back!',
+      });
+      
+      // Redirect to the page they were trying to access or dashboard
+      navigate(from);
+    } catch (error: any) {
+      console.error("Unexpected login error:", error);
+      toast({
+        title: 'Login failed',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      });
       setLoading(false);
     }
   };

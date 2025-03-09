@@ -15,9 +15,11 @@ const SignupFormWrapper = () => {
     lastName: string;
   }) => {
     try {
+      console.log("Attempting to sign up with:", { email, userData });
       const { error } = await signUp(email, password, userData);
       
       if (error) {
+        console.error("Signup error:", error);
         toast({
           title: 'Signup failed',
           description: error.message,
@@ -33,7 +35,8 @@ const SignupFormWrapper = () => {
       
       navigate('/login');
       return true;
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Unexpected signup error:", error);
       toast({
         title: 'Signup failed',
         description: 'An unexpected error occurred. Please try again.',

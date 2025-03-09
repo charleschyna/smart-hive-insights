@@ -9,8 +9,6 @@ import { AlertCircle } from 'lucide-react';
 
 const Login = () => {
   const { user, loading } = useAuth();
-  // We don't need to check for environment variables anymore since we have fallbacks
-  // in the supabase client configuration
   
   // If user is already authenticated, redirect to dashboard
   if (user && !loading) {
