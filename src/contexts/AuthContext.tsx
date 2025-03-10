@@ -27,8 +27,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const fetchSession = async () => {
       try {
+        console.log("Fetching auth session...");
         // Retrieve session from local storage to prevent unnecessary network requests
         const { data: { session } } = await supabase.auth.getSession();
+        console.log("Session retrieved:", session ? "Valid session" : "No session");
         setUser(session?.user || null);
       } catch (error) {
         console.error("Error getting auth session:", error);
@@ -42,6 +44,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log("Auth state changed:", _event, session ? "Has session" : "No session");
       setUser(session?.user || null);
       setLoading(false);
     });
@@ -53,6 +56,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signUp = async (email: string, password: string, userData?: Record<string, any>) => {
     try {
+      console.log("SignUp function called with email:", email);
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -60,6 +64,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           data: userData,
         },
       });
+      console.log("SignUp result:", error ? `Error: ${error.message}` : "Success");
       return { error };
     } catch (error) {
       console.error("Error during sign up:", error);
@@ -69,10 +74,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
+      console.log("SignIn function called with email:", email);
       const { error }: AuthResponse = await supabase.auth.signInWithPassword({
         email,
         password,
       });
+      console.log("SignIn result:", error ? `Error: ${error.message}` : "Success");
       return { error };
     } catch (error) {
       console.error("Error during sign in:", error);
@@ -82,8 +89,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signOut = async () => {
     try {
+      console.log("SignOut function called");
       await supabase.auth.signOut();
       setUser(null);
+      console.log("User signed out successfully");
     } catch (error) {
       console.error("Error during sign out:", error);
     }

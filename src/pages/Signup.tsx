@@ -8,8 +8,11 @@ import { useAuth } from '@/contexts/AuthContext';
 const Signup = () => {
   const { user, loading } = useAuth();
   
+  console.log("Signup page - User:", user ? "Authenticated" : "Not authenticated", "Loading:", loading);
+  
   // If user is already authenticated, redirect to dashboard
   if (user && !loading) {
+    console.log("User already authenticated, redirecting to dashboard");
     return <Navigate to="/dashboard" replace />;
   }
   
@@ -24,6 +27,7 @@ const Signup = () => {
     );
   }
   
+  console.log("Rendering signup form");
   return (
     <AuthLayout 
       title="Create Account" 

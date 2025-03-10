@@ -10,8 +10,11 @@ import { AlertCircle } from 'lucide-react';
 const Login = () => {
   const { user, loading } = useAuth();
   
+  console.log("Login page - User:", user ? "Authenticated" : "Not authenticated", "Loading:", loading);
+  
   // If user is already authenticated, redirect to dashboard
   if (user && !loading) {
+    console.log("User already authenticated, redirecting to dashboard");
     return <Navigate to="/dashboard" replace />;
   }
   
@@ -26,6 +29,7 @@ const Login = () => {
     );
   }
   
+  console.log("Rendering login form");
   return (
     <AuthLayout 
       title="Welcome Back" 
