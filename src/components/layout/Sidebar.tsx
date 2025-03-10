@@ -22,7 +22,7 @@ const menuItems = [
   { name: 'Settings', icon: Settings, path: '/settings' },
 ];
 
-const Sidebar = ({ isOpen, setIsOpen }) => {
+const Sidebar = () => {
   const location = useLocation();
   const isMobile = useIsMobile();
   const [collapsed, setCollapsed] = useState(false);
@@ -64,7 +64,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   
   return (
     <motion.div
-      className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''} ${isOpen ? styles.open : ''}`}
+      className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}
       initial={{ x: -20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ duration: 0.4, delay: 0.1 }}
