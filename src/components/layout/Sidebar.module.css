@@ -1,8 +1,9 @@
+
 .sidebar {
-  width: 16rem; /* Default width */
-  transition: width 0.3s;
+  width: 4rem; /* Default minimized width */
+  transition: width 0.3s ease;
 }
 
 .sidebar.open {
-  width: 64rem; /* Expanded width */
+  width: 16rem; /* Expanded width */
 }

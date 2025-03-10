@@ -1,17 +1,13 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
 
 export const useHiveData = (id: string | undefined) => {
   const navigate = useNavigate();
-  const { user, supabase } = useAuth();
-  const { toast } = useToast();
   const [hive, setHive] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
-  // Generate mock data for the monitoring time series
+  // Mock data for the monitoring time series
   const timeSeriesData = {
     temperature: Array.from({ length: 24 }, (_, i) => ({
       time: `${i}:00`,
@@ -28,81 +24,32 @@ export const useHiveData = (id: string | undefined) => {
   };
   
   useEffect(() => {
-    if (!id || !user) {
-      if (!user) {
-        navigate('/login');
-      }
-      return;
-    }
-    
-    const fetchHive = async () => {
-      setLoading(true);
+    // Load hive from localStorage
+    const loadData = () => {
+      const hives = JSON.parse(localStorage.getItem('hives') || '[]');
+      const foundHive = hives.find((h: any) => h.id === id);
       
-      try {
-        // Fetch hive data from Supabase
-        const { data, error } = await supabase
-          .from('hives')
-          .select(`
-            *,
-            apiaries(name)
-          `)
-          .eq('id', id)
-          .single();
-        
-        if (error) {
-          console.error('Error fetching hive:', error);
-          toast({
-            title: 'Error',
-            description: 'Failed to load hive data',
-            variant: 'destructive',
-          });
-          navigate('/hives');
-          return;
-        }
-        
-        if (!data) {
-          toast({
-            title: 'Hive not found',
-            description: 'The requested hive does not exist or you do not have access to it',
-            variant: 'destructive',
-          });
-          navigate('/hives');
-          return;
-        }
-        
-        setHive(data);
-      } catch (error) {
-        console.error('Error in hive fetch:', error);
-        toast({
-          title: 'An error occurred',
-          description: 'Something went wrong while loading the hive data',
-          variant: 'destructive',
-        });
+      if (!foundHive) {
         navigate('/hives');
-      } finally {
-        setLoading(false);
+        return;
       }
-    };
-    
-    fetchHive();
-    
-    // Set up subscription for real-time updates
-    const hiveSubscription = supabase
-      .channel(`hive:${id}`)
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'hives',
-        filter: `id=eq.${id}`
-      }, (payload) => {
-        setHive(payload.new);
-      })
-      .subscribe();
       
-    return () => {
-      supabase.removeChannel(hiveSubscription);
+      setHive(foundHive);
+      setLoading(false);
     };
-  }, [id, navigate, supabase, toast, user]);
+    
+    loadData();
+    
+    // Set up event listener for storage changes
+    const handleStorageChange = () => {
+      loadData();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [id, navigate]);
 
   return { hive, loading, timeSeriesData };
 };

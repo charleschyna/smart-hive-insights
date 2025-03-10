@@ -1,6 +1,4 @@
-
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
 import HiveOverview from '@/components/dashboard/HiveOverview';
@@ -8,161 +6,43 @@ import StatCard from '@/components/dashboard/StatCard';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { BarChart3, ListPlus, ThermometerSun, Droplets, ArrowUpRight, Scale, PlusCircle } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
 
 const Dashboard = () => {
   const [apiaryCount, setApiaryCount] = useState(0);
   const [hiveCount, setHiveCount] = useState(0);
   const [recentHives, setRecentHives] = useState<any[]>([]);
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const { user, supabase } = useAuth();
-  const { toast } = useToast();
-  const navigate = useNavigate();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
+    const apiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
+    const hives = JSON.parse(localStorage.getItem('hives') || '[]');
+    const activities = JSON.parse(localStorage.getItem('activities') || '[]');
     
-    const fetchDashboardData = async () => {
-      setLoading(true);
+    setApiaryCount(apiaries.length);
+    setHiveCount(hives.length);
+    
+    setRecentHives(hives.slice(0, 3));
+    setRecentActivities(activities.slice(0, 4));
+    
+    console.log("Dashboard component mounted");
+    
+    const handleStorageChange = () => {
+      const updatedApiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
+      const updatedHives = JSON.parse(localStorage.getItem('hives') || '[]');
+      const updatedActivities = JSON.parse(localStorage.getItem('activities') || '[]');
       
-      try {
-        // Fetch apiaries count
-        const { count: apiariesCount, error: apiariesError } = await supabase
-          .from('apiaries')
-          .select('*', { count: 'exact', head: true });
-        
-        if (apiariesError) {
-          console.error('Error fetching apiaries count:', apiariesError);
-        } else {
-          setApiaryCount(apiariesCount || 0);
-        }
-        
-        // Fetch hives count
-        const { count: hivesCount, error: hivesError } = await supabase
-          .from('hives')
-          .select('*', { count: 'exact', head: true });
-        
-        if (hivesError) {
-          console.error('Error fetching hives count:', hivesError);
-        } else {
-          setHiveCount(hivesCount || 0);
-        }
-        
-        // Fetch recent hives
-        const { data: recentHivesData, error: recentHivesError } = await supabase
-          .from('hives')
-          .select(`
-            *,
-            apiaries (
-              id,
-              name
-            )
-          `)
-          .order('created_at', { ascending: false })
-          .limit(3);
-        
-        if (recentHivesError) {
-          console.error('Error fetching recent hives:', recentHivesError);
-        } else {
-          setRecentHives(recentHivesData || []);
-        }
-        
-        // For now, we'll use mock activity data as there's no activities table yet
-        // In a real app, you'd fetch this from a dedicated activities table
-        const mockActivities = [
-          {
-            id: '1',
-            description: 'You logged in to the system',
-            timestamp: new Date().toISOString(),
-            type: 'login'
-          },
-          {
-            id: '2',
-            description: 'Dashboard viewed',
-            timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-            type: 'view'
-          }
-        ];
-        
-        setRecentActivities(mockActivities);
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load dashboard data',
-          variant: 'destructive',
-        });
-      } finally {
-        setLoading(false);
-      }
+      setApiaryCount(updatedApiaries.length);
+      setHiveCount(updatedHives.length);
+      setRecentHives(updatedHives.slice(0, 3));
+      setRecentActivities(updatedActivities.slice(0, 4));
     };
     
-    fetchDashboardData();
-    
-    // Set up real-time subscriptions for counts
-    const apiariesSubscription = supabase
-      .channel('dashboard:apiaries')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'apiaries',
-        filter: `user_id=eq.${user.id}`
-      }, () => {
-        // Re-fetch the count when there's a change
-        supabase
-          .from('apiaries')
-          .select('*', { count: 'exact', head: true })
-          .then(({ count }) => {
-            setApiaryCount(count || 0);
-          });
-      })
-      .subscribe();
-      
-    const hivesSubscription = supabase
-      .channel('dashboard:hives')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'hives',
-        filter: `user_id=eq.${user.id}`
-      }, () => {
-        // Re-fetch the count when there's a change
-        supabase
-          .from('hives')
-          .select('*', { count: 'exact', head: true })
-          .then(({ count }) => {
-            setHiveCount(count || 0);
-          });
-        
-        // Also re-fetch recent hives
-        supabase
-          .from('hives')
-          .select(`
-            *,
-            apiaries (
-              id,
-              name
-            )
-          `)
-          .order('created_at', { ascending: false })
-          .limit(3)
-          .then(({ data }) => {
-            if (data) setRecentHives(data);
-          });
-      })
-      .subscribe();
-      
+    window.addEventListener('storage', handleStorageChange);
     return () => {
-      supabase.removeChannel(apiariesSubscription);
-      supabase.removeChannel(hivesSubscription);
+      window.removeEventListener('storage', handleStorageChange);
     };
-  }, [navigate, supabase, toast, user]);
+  }, []);
 
   const getRelativeTime = (timestamp: string) => {
     const now = new Date();
@@ -179,24 +59,11 @@ const Dashboard = () => {
     return 'Just now';
   };
 
-  // Calculate average metrics for all hives
-  const averageTemp = recentHives.length 
-    ? recentHives.reduce((sum, hive) => sum + (hive.temperature || 0), 0) / recentHives.length 
-    : 35;
-    
-  const averageHumidity = recentHives.length 
-    ? recentHives.reduce((sum, hive) => sum + (hive.humidity || 0), 0) / recentHives.length 
-    : 65;
-    
-  const averageWeight = recentHives.length 
-    ? recentHives.reduce((sum, hive) => sum + (hive.weight || 0), 0) / recentHives.length 
-    : 28;
-
   const stats = [
     { 
       title: 'Total Apiaries', 
       value: apiaryCount.toString(), 
-      change: `+${apiaryCount}`, 
+      change: '+' + apiaryCount, 
       icon: <ListPlus className="h-5 w-5" />,
       linkTo: '/apiaries',
       color: 'honey' as const
@@ -204,14 +71,14 @@ const Dashboard = () => {
     { 
       title: 'Total Hives', 
       value: hiveCount.toString(), 
-      change: `+${hiveCount}`, 
+      change: '+' + hiveCount, 
       icon: <BarChart3 className="h-5 w-5" />,
       linkTo: '/hives',
       color: 'forest' as const
     },
     { 
       title: 'Average Temp.', 
-      value: `${averageTemp.toFixed(1)}°C`, 
+      value: '35°C', 
       change: '0.8°C', 
       icon: <ThermometerSun className="h-5 w-5" />,
       linkTo: '/analytics',
@@ -219,7 +86,7 @@ const Dashboard = () => {
     },
     { 
       title: 'Average Humidity', 
-      value: `${averageHumidity.toFixed(1)}%`, 
+      value: '65%', 
       change: '-2%', 
       icon: <Droplets className="h-5 w-5" />,
       linkTo: '/analytics',
@@ -227,7 +94,7 @@ const Dashboard = () => {
     },
     { 
       title: 'Average Weight', 
-      value: `${averageWeight.toFixed(1)}kg`, 
+      value: '28kg', 
       change: '+3kg', 
       icon: <Scale className="h-5 w-5" />,
       linkTo: '/analytics',
@@ -235,23 +102,12 @@ const Dashboard = () => {
     }
   ];
 
-  if (loading && !user) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-t-4 border-honey-500 border-solid rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-lg text-muted-foreground">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'}`}>
         <Navbar />
-        <main className={`flex-1 overflow-y-auto p-6 transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'} mt-16`}>
+        <main className="flex-1 overflow-y-auto p-6 mt-16">
           <div className="max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-8">
               <h1 className="text-2xl font-bold text-left">Hive Dashboard</h1>
@@ -295,6 +151,17 @@ const Dashboard = () => {
                       <div key={activity.id} className="flex items-center justify-between py-3 border-b border-border last:border-0">
                         <div>
                           <p className="font-medium">{activity.description}</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {activity.type === 'apiary_added' ? (
+                              <Link to={`/apiaries/${activity.entityId}`} className="hover:text-honey-600">
+                                View apiary
+                              </Link>
+                            ) : activity.type === 'hive_added' ? (
+                              <Link to={`/hives/${activity.entityId}`} className="hover:text-honey-600">
+                                View hive
+                              </Link>
+                            ) : null}
+                          </p>
                         </div>
                         <p className="text-xs text-muted-foreground">{getRelativeTime(activity.timestamp)}</p>
                       </div>
@@ -354,12 +221,12 @@ const Dashboard = () => {
                       key={hive.id}
                       hiveId={hive.id}
                       name={hive.name}
-                      location={hive.apiaries?.name || 'Unknown Apiary'}
+                      location={hive.apiary?.name || 'Unknown Apiary'}
                       temperature={hive.temperature}
                       humidity={hive.humidity}
                       weight={hive.weight}
                       activity={hive.activity}
-                      lastUpdated={hive.last_inspection}
+                      lastUpdated={hive.lastInspection}
                     />
                   ))}
                 </div>

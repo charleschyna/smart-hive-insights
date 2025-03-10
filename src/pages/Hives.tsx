@@ -1,94 +1,98 @@
 
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
 import HiveCard from '@/components/hive/HiveCard';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { PlusCircle } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { PlusCircle, Trash2 } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const Hives = () => {
   const [hives, setHives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const { user, supabase } = useAuth();
-  const { toast } = useToast();
-  const navigate = useNavigate();
 
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      return;
+    // Load hives from localStorage
+    const loadHives = () => {
+      const storedHives = JSON.parse(localStorage.getItem('hives') || '[]');
+      setHives(storedHives);
+      setLoading(false);
+    };
+
+    loadHives();
+    
+    // Set up event listener for storage changes
+    const handleStorageChange = () => {
+      loadHives();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  const handleDeleteHive = (id: string, name: string) => {
+    // Remove hive from localStorage
+    const updatedHives = hives.filter(hive => hive.id !== id);
+    localStorage.setItem('hives', JSON.stringify(updatedHives));
+    
+    // Update apiaries to reflect hive count changes
+    const apiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
+    const hive = hives.find(h => h.id === id);
+    
+    if (hive && hive.apiaryId) {
+      const updatedApiaries = apiaries.map((apiary: any) => {
+        if (apiary.id === hive.apiaryId) {
+          const totalHives = (apiary.totalHives || 1) - 1;
+          return { ...apiary, totalHives: totalHives < 0 ? 0 : totalHives };
+        }
+        return apiary;
+      });
+      localStorage.setItem('apiaries', JSON.stringify(updatedApiaries));
     }
     
-    const fetchHives = async () => {
-      setLoading(true);
-      
-      try {
-        const { data, error } = await supabase
-          .from('hives')
-          .select(`
-            *,
-            apiaries(name)
-          `)
-          .order('created_at', { ascending: false });
-        
-        if (error) {
-          console.error('Error fetching hives:', error);
-          toast({
-            title: 'Error',
-            description: 'Failed to load hives',
-            variant: 'destructive',
-          });
-          setHives([]);
-        } else {
-          setHives(data || []);
-        }
-      } catch (error) {
-        console.error('Error fetching hives:', error);
-        toast({
-          title: 'Error',
-          description: 'An unexpected error occurred while loading hives',
-          variant: 'destructive',
-        });
-        setHives([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Add activity event
+    const activities = JSON.parse(localStorage.getItem('activities') || '[]');
+    activities.unshift({
+      id: Date.now().toString(),
+      type: 'hive_deleted',
+      entityId: id,
+      entityName: name,
+      timestamp: new Date().toISOString(),
+      description: `Hive "${name}" was deleted`
+    });
+    localStorage.setItem('activities', JSON.stringify(activities));
     
-    fetchHives();
+    // Update UI
+    setHives(updatedHives);
     
-    // Set up real-time subscription
-    const hivesSubscription = supabase
-      .channel('public:hives')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'hives',
-        filter: `user_id=eq.${user.id}`
-      }, (payload) => {
-        if (payload.eventType === 'INSERT') {
-          setHives(prev => [payload.new, ...prev]);
-        } else if (payload.eventType === 'UPDATE') {
-          setHives(prev => prev.map(hive => hive.id === payload.new.id ? payload.new : hive));
-        } else if (payload.eventType === 'DELETE') {
-          setHives(prev => prev.filter(hive => hive.id !== payload.old.id));
-        }
-      })
-      .subscribe();
-      
-    return () => {
-      supabase.removeChannel(hivesSubscription);
-    };
-  }, [navigate, supabase, toast, user]);
+    // Notify user
+    toast({
+      title: 'Hive Deleted',
+      description: `${name} has been removed successfully`,
+    });
+    
+    // Dispatch storage event to notify other tabs/components
+    window.dispatchEvent(new Event('storage'));
+  };
 
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar />
+      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
       <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'}`}>
         <Navbar />
         <main className="flex-1 overflow-y-auto p-6 mt-16">
@@ -119,18 +123,47 @@ const Hives = () => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {hives.map((hive) => (
-                  <HiveCard
-                    key={hive.id}
-                    id={hive.id}
-                    name={hive.name}
-                    queenAge={hive.queen_age}
-                    lastInspection={hive.last_inspection}
-                    health={hive.health}
-                    temperature={hive.temperature}
-                    humidity={hive.humidity}
-                    weight={hive.weight}
-                    imageUrl={hive.image_url || '/placeholder.svg'}
-                  />
+                  <div key={hive.id} className="relative">
+                    <HiveCard
+                      id={hive.id}
+                      name={hive.name}
+                      queenAge={hive.queenAge}
+                      lastInspection={hive.lastInspection}
+                      health={hive.health}
+                      temperature={hive.temperature}
+                      humidity={hive.humidity}
+                      weight={hive.weight}
+                      imageUrl={hive.imageUrl}
+                    />
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          className="absolute top-2 right-2 h-8 w-8 p-0"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Hive</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete "{hive.name}"? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => handleDeleteHive(hive.id, hive.name)}
+                            className="bg-red-500 hover:bg-red-600"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 ))}
               </div>
             )}

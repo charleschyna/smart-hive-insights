@@ -1,14 +1,13 @@
 
 import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
 
 interface LoginFormData {
   email: string;
@@ -18,8 +17,6 @@ interface LoginFormData {
 
 const LoginForm = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { signIn } = useAuth();
   const { toast } = useToast();
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
@@ -28,9 +25,6 @@ const LoginForm = () => {
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
-  // Get the redirect path from location state or default to dashboard
-  const from = location.state?.from?.pathname || '/dashboard';
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -72,37 +66,19 @@ const LoginForm = () => {
     
     setLoading(true);
     
-    try {
-      console.log("Attempting to sign in with:", formData.email);
-      const { error } = await signIn(formData.email, formData.password);
-      
-      if (error) {
-        console.error("Login error:", error);
-        toast({
-          title: 'Login failed',
-          description: error.message,
-          variant: 'destructive',
-        });
-        setLoading(false);
-        return;
-      }
-      
-      toast({
-        title: 'Login successful',
-        description: 'Welcome back!',
-      });
-      
-      // Redirect to the page they were trying to access or dashboard
-      navigate(from);
-    } catch (error: any) {
-      console.error("Unexpected login error:", error);
-      toast({
-        title: 'Login failed',
-        description: 'An unexpected error occurred. Please try again.',
-        variant: 'destructive',
-      });
+    // Simulate API call
+    setTimeout(() => {
       setLoading(false);
-    }
+      toast({
+        title: "Welcome back!",
+        description: "Successfully logged in. Redirecting to dashboard...",
+      });
+      
+      // Navigate to dashboard after successful login
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 1000);
+    }, 1500);
   };
   
   return (

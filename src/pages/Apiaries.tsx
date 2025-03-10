@@ -1,94 +1,90 @@
 
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
 import ApiaryCard from '@/components/apiary/ApiaryCard';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { PlusCircle } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { PlusCircle, Trash2 } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const Apiaries = () => {
   const [apiaries, setApiaries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const { user, supabase } = useAuth();
-  const { toast } = useToast();
-  const navigate = useNavigate();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
+    // Load apiaries from localStorage
+    const loadApiaries = () => {
+      const storedApiaries = JSON.parse(localStorage.getItem('apiaries') || '[]');
+      setApiaries(storedApiaries);
+      setLoading(false);
+    };
+
+    loadApiaries();
     
-    const fetchApiaries = async () => {
-      setLoading(true);
-      
-      try {
-        const { data, error } = await supabase
-          .from('apiaries')
-          .select('*')
-          .order('created_at', { ascending: false });
-        
-        if (error) {
-          console.error('Error fetching apiaries:', error);
-          toast({
-            title: 'Error',
-            description: 'Failed to load apiaries',
-            variant: 'destructive',
-          });
-          setApiaries([]);
-        } else {
-          setApiaries(data || []);
-        }
-      } catch (error) {
-        console.error('Error fetching apiaries:', error);
-        toast({
-          title: 'Error',
-          description: 'An unexpected error occurred while loading apiaries',
-          variant: 'destructive',
-        });
-        setApiaries([]);
-      } finally {
-        setLoading(false);
-      }
+    // Set up event listener for storage changes
+    const handleStorageChange = () => {
+      loadApiaries();
     };
     
-    fetchApiaries();
-    
-    // Set up real-time subscription
-    const apiariesSubscription = supabase
-      .channel('public:apiaries')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'apiaries',
-        filter: `user_id=eq.${user.id}`
-      }, (payload) => {
-        if (payload.eventType === 'INSERT') {
-          setApiaries(prev => [payload.new, ...prev]);
-        } else if (payload.eventType === 'UPDATE') {
-          setApiaries(prev => prev.map(apiary => apiary.id === payload.new.id ? payload.new : apiary));
-        } else if (payload.eventType === 'DELETE') {
-          setApiaries(prev => prev.filter(apiary => apiary.id !== payload.old.id));
-        }
-      })
-      .subscribe();
-      
+    window.addEventListener('storage', handleStorageChange);
     return () => {
-      supabase.removeChannel(apiariesSubscription);
+      window.removeEventListener('storage', handleStorageChange);
     };
-  }, [navigate, supabase, toast, user]);
+  }, []);
+
+  const handleDeleteApiary = (id: string) => {
+    // Remove apiary from localStorage
+    const updatedApiaries = apiaries.filter(apiary => apiary.id !== id);
+    localStorage.setItem('apiaries', JSON.stringify(updatedApiaries));
+    
+    // Remove hives associated with this apiary
+    const hives = JSON.parse(localStorage.getItem('hives') || '[]');
+    const updatedHives = hives.filter((hive: any) => hive.apiaryId !== id);
+    localStorage.setItem('hives', JSON.stringify(updatedHives));
+    
+    // Add activity event
+    const activities = JSON.parse(localStorage.getItem('activities') || '[]');
+    activities.unshift({
+      id: Date.now().toString(),
+      type: 'apiary_deleted',
+      entityId: id,
+      timestamp: new Date().toISOString(),
+      description: `Apiary was deleted`
+    });
+    localStorage.setItem('activities', JSON.stringify(activities));
+    
+    // Update UI
+    setApiaries(updatedApiaries);
+    
+    // Notify user
+    toast({
+      title: 'Apiary Deleted',
+      description: 'The apiary has been removed successfully',
+    });
+    
+    // Dispatch storage event to notify other tabs/components
+    window.dispatchEvent(new Event('storage'));
+  };
 
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'}`}>
         <Navbar />
-        <main className={`flex-1 overflow-y-auto p-6 transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'} mt-16`}>
+        <main className="flex-1 overflow-y-auto p-6 mt-16">
           <div className="max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-8">
               <h1 className="text-2xl font-bold text-left">Manage Apiaries</h1>
@@ -116,15 +112,44 @@ const Apiaries = () => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {apiaries.map((apiary) => (
-                  <ApiaryCard
-                    key={apiary.id}
-                    id={apiary.id}
-                    name={apiary.name}
-                    location={apiary.location || 'Unknown location'}
-                    totalHives={apiary.total_hives || 0}
-                    imageUrl={apiary.image_url || '/placeholder.svg'}
-                    lastInspection={apiary.last_inspection || new Date().toISOString()}
-                  />
+                  <div key={apiary.id} className="relative">
+                    <ApiaryCard
+                      id={apiary.id}
+                      name={apiary.name}
+                      location={apiary.location}
+                      totalHives={apiary.totalHives || 0}
+                      imageUrl={apiary.imageUrl || '/placeholder.svg'}
+                      lastInspection={apiary.lastInspection || new Date().toISOString()}
+                    />
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          className="absolute top-2 right-2 h-8 w-8 p-0"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Apiary</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete "{apiary.name}"? This will also remove all hives associated with this apiary. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => handleDeleteApiary(apiary.id)}
+                            className="bg-red-500 hover:bg-red-600"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 ))}
               </div>
             )}
