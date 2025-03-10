@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
@@ -8,32 +8,70 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const Profile = () => {
+  const { user, loading: authLoading } = useAuth();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: 'John Doe',
-    email: 'john.doe@example.com',
+    firstName: '',
+    lastName: '',
+    email: '',
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      // Load profile data from user metadata
+      setFormData(prev => ({
+        ...prev,
+        firstName: user.user_metadata?.first_name || '',
+        lastName: user.user_metadata?.last_name || '',
+        email: user.email || '',
+      }));
+    }
+  }, [user]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleProfileUpdate = (e: React.FormEvent) => {
+  const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would update the user's profile information
-    toast({
-      title: 'Profile Updated',
-      description: 'Your profile information has been updated successfully.',
-    });
+    setLoading(true);
+    
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+        }
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: 'Profile Updated',
+        description: 'Your profile information has been updated successfully.',
+      });
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      toast({
+        title: 'Update Failed',
+        description: error.message || 'Failed to update profile',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handlePasswordChange = (e: React.FormEvent) => {
+  const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (formData.newPassword !== formData.confirmPassword) {
@@ -45,20 +83,42 @@ const Profile = () => {
       return;
     }
     
-    // In a real app, this would update the user's password
-    toast({
-      title: 'Password Changed',
-      description: 'Your password has been changed successfully.',
-    });
+    setLoading(true);
     
-    // Reset password fields
-    setFormData((prev) => ({
-      ...prev,
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: '',
-    }));
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: formData.newPassword
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: 'Password Changed',
+        description: 'Your password has been changed successfully.',
+      });
+      
+      // Reset password fields
+      setFormData((prev) => ({
+        ...prev,
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      }));
+    } catch (error: any) {
+      console.error('Error updating password:', error);
+      toast({
+        title: 'Password Update Failed',
+        description: error.message || 'Failed to update password',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (authLoading) {
+    return <div className="flex h-screen items-center justify-center">Loading...</div>;
+  }
 
   return (
     <div className="flex h-screen bg-background">
@@ -77,11 +137,20 @@ const Profile = () => {
               <form onSubmit={handleProfileUpdate}>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Name</Label>
+                    <Label htmlFor="firstName">First Name</Label>
                     <Input
-                      id="name"
-                      name="name"
-                      value={formData.name}
+                      id="firstName"
+                      name="firstName"
+                      value={formData.firstName}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      name="lastName"
+                      value={formData.lastName}
                       onChange={handleInputChange}
                     />
                   </div>
@@ -93,11 +162,15 @@ const Profile = () => {
                       type="email"
                       value={formData.email}
                       onChange={handleInputChange}
+                      disabled
                     />
+                    <p className="text-xs text-muted-foreground">Email cannot be changed. Please contact support for assistance.</p>
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit">Save Changes</Button>
+                  <Button type="submit" disabled={loading}>
+                    {loading ? 'Saving...' : 'Save Changes'}
+                  </Button>
                 </CardFooter>
               </form>
             </Card>
@@ -142,7 +215,9 @@ const Profile = () => {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit">Change Password</Button>
+                  <Button type="submit" disabled={loading}>
+                    {loading ? 'Updating...' : 'Change Password'}
+                  </Button>
                 </CardFooter>
               </form>
             </Card>
