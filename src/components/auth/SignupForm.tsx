@@ -1,12 +1,12 @@
 
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SignupFormData {
   firstName: string;
@@ -17,8 +17,7 @@ interface SignupFormData {
 }
 
 const SignupForm = () => {
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  const { signUp, loading: authLoading } = useAuth();
   const [formData, setFormData] = useState<SignupFormData>({
     firstName: '',
     lastName: '',
@@ -26,7 +25,6 @@ const SignupForm = () => {
     password: '',
     confirmPassword: '',
   });
-  const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,21 +72,7 @@ const SignupForm = () => {
     
     if (!validate()) return;
     
-    setLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      toast({
-        title: "Account created!",
-        description: "Welcome to Smart Nyuki. Redirecting you to the dashboard...",
-      });
-      
-      // Navigate to dashboard after successful signup
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 1500);
-    }, 1500);
+    await signUp(formData.email, formData.password, formData.firstName, formData.lastName);
   };
   
   return (
@@ -182,9 +166,9 @@ const SignupForm = () => {
       <Button 
         type="submit"
         className="w-full bg-honey-500 hover:bg-honey-600 text-black font-medium h-11"
-        disabled={loading}
+        disabled={authLoading}
       >
-        {loading ? (
+        {authLoading ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (
           <>

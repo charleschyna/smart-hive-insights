@@ -1,13 +1,13 @@
 
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface LoginFormData {
   email: string;
@@ -16,14 +16,12 @@ interface LoginFormData {
 }
 
 const LoginForm = () => {
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  const { signIn, loading: authLoading } = useAuth();
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: '',
     rememberMe: false,
   });
-  const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,21 +62,7 @@ const LoginForm = () => {
     
     if (!validate()) return;
     
-    setLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      toast({
-        title: "Welcome back!",
-        description: "Successfully logged in. Redirecting to dashboard...",
-      });
-      
-      // Navigate to dashboard after successful login
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 1000);
-    }, 1500);
+    await signIn(formData.email, formData.password, formData.rememberMe);
   };
   
   return (
@@ -146,9 +130,9 @@ const LoginForm = () => {
       <Button 
         type="submit"
         className="w-full bg-honey-500 hover:bg-honey-600 text-black font-medium h-11"
-        disabled={loading}
+        disabled={authLoading}
       >
-        {loading ? (
+        {authLoading ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (
           <>
